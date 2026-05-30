@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,10 +12,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.annotation.DrawableRes
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -24,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -38,9 +38,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.neuroomni.horizons.ui.theme.TealAbyss
+import com.neuroomni.horizons.ui.theme.TealDeep
+import com.neuroomni.horizons.ui.theme.TealMid
 import com.neuroomni.horizons.model.ChatMessage
 import com.neuroomni.horizons.model.ChatRole
 import com.neuroomni.horizons.model.EdgeModel
@@ -60,20 +66,25 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             HorizonsTheme {
-                Surface(color = MaterialTheme.colorScheme.background) {
-                    HorizonsApp()
-                }
+                HorizonsApp()
             }
         }
     }
 }
 
-/** The four panels of Horizons UI v3.0 (Spec §2). */
-enum class Panel(val title: String, val icon: ImageVector) {
-    Chat("Chat", Icons.Filled.Chat),
-    Router("Router", Icons.Filled.Hub),
-    Terminal("Terminal", Icons.Filled.Terminal),
-    Diagnostics("Diagnostics", Icons.Filled.MonitorHeart),
+/**
+ * The four panels of Horizons UI v3.0 (Spec §2). Most use a built-in Material
+ * [ImageVector]; Diagnostics uses a custom cogwheel + RPM-gauge drawable.
+ */
+enum class Panel(
+    val title: String,
+    val icon: ImageVector? = null,
+    @DrawableRes val iconRes: Int? = null,
+) {
+    Chat("Chat", icon = Icons.AutoMirrored.Filled.Chat),
+    Router("Router", icon = Icons.Filled.Hub),
+    Terminal("Terminal", icon = Icons.Filled.Terminal),
+    Diagnostics("Diagnostics", iconRes = R.drawable.ic_diagnostics),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -98,23 +109,39 @@ fun HorizonsApp() {
     LaunchedEffect(voiceEngine) { voiceEngine.initialize() }
     DisposableEffect(voiceEngine) { onDispose { voiceEngine.shutdown() } }
 
+    // Teal liquid-marble gradient behind the whole app (wallpaper-inspired).
+    val appBackground = Brush.linearGradient(listOf(TealDeep, TealMid, TealAbyss))
+
     Scaffold(
+        modifier = Modifier.background(appBackground),
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text("Horizons") },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = Color.Transparent,
                 ),
             )
         },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = Color.Transparent) {
                 Panel.entries.forEach { panel ->
                     NavigationBarItem(
                         selected = selectedPanel == panel,
                         onClick = { selectedPanel = panel },
-                        icon = { Icon(panel.icon, contentDescription = panel.title) },
-                        label = { Text(panel.title) },
+                        icon = {
+                            when {
+                                panel.iconRes != null -> Icon(
+                                    painter = painterResource(panel.iconRes),
+                                    contentDescription = panel.title,
+                                )
+                                panel.icon != null -> Icon(
+                                    imageVector = panel.icon,
+                                    contentDescription = panel.title,
+                                )
+                            }
+                        },
+                        label = { Text(panel.title, maxLines = 1, softWrap = false) },
                     )
                 }
             }

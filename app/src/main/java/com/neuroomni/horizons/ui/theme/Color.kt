@@ -15,3 +15,9 @@ val AccentBlue = Color(0xFF58A6FF)   // Personal
 val AccentRed = Color(0xFFF85149)    // Red Agent
 val AccentYellow = Color(0xFFD29922) // Collab
 val AccentGreen = Color(0xFF3FB950)
+
+// Teal liquid-marble app background, evoking the wallpaper. Used as a diagonal
+// gradient behind the panels. Swap in a real photo drawable here later if desired.
+val TealDeep = Color(0xFF0B3A40)
+val TealMid = Color(0xFF0D1B26)
+val TealAbyss = Color(0xFF060A0D)
