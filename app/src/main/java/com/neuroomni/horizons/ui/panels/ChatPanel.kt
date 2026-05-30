@@ -44,6 +44,7 @@ import com.neuroomni.horizons.model.ChatRole
 fun ChatPanel(
     messages: List<ChatMessage>,
     frontierEnabled: Boolean,
+    activeProviderLabel: String,
     onProviderToggle: (Boolean) -> Unit,
     onSend: (String) -> Unit,
     onSpeak: (String) -> Unit,
@@ -60,6 +61,7 @@ fun ChatPanel(
     Column(modifier = modifier.fillMaxSize()) {
         ProviderToggleBar(
             frontierEnabled = frontierEnabled,
+            activeProviderLabel = activeProviderLabel,
             onProviderToggle = onProviderToggle,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         )
@@ -127,6 +129,7 @@ fun ChatPanel(
 @Composable
 private fun ProviderToggleBar(
     frontierEnabled: Boolean,
+    activeProviderLabel: String,
     onProviderToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -136,13 +139,14 @@ private fun ProviderToggleBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            text = "Active provider: ${if (frontierEnabled) "Frontier" else "Edge"}",
+            text = "Active provider: $activeProviderLabel",
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier.weight(1f),
         )
+        // Quick Edge ⇄ frontier switch; the Router panel picks which frontier provider.
         Text("Edge", style = MaterialTheme.typography.labelMedium)
         Switch(checked = frontierEnabled, onCheckedChange = onProviderToggle)
-        Text("Frontier", style = MaterialTheme.typography.labelMedium)
+        Text("Cloud", style = MaterialTheme.typography.labelMedium)
     }
 }
 

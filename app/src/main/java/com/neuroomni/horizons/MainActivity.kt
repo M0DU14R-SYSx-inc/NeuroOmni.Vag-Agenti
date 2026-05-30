@@ -52,6 +52,9 @@ import com.neuroomni.horizons.model.ChatRole
 import com.neuroomni.horizons.model.EdgeModel
 import com.neuroomni.horizons.model.EdgeModelFactory
 import com.neuroomni.horizons.model.InstanceProfile
+import com.neuroomni.horizons.provider.ChatRouter
+import com.neuroomni.horizons.provider.CredentialStore
+import com.neuroomni.horizons.provider.ProviderId
 import kotlinx.coroutines.launch
 import com.neuroomni.horizons.ui.panels.ChatPanel
 import com.neuroomni.horizons.ui.panels.DiagnosticsPanel
@@ -95,10 +98,24 @@ fun HorizonsApp() {
 
     // Chat state + the currently-selected edge model (defaults to the CI-safe stub).
     val messages = remember { mutableStateListOf<ChatMessage>() }
-    var frontierEnabled by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val edgeModel: EdgeModel = remember { EdgeModelFactory.create(context) }
     val scope = rememberCoroutineScope()
+
+    // Layer 1 — provider routing (Architecture §5). Keys persist in the Keystore-backed
+    // store; the active toggle is the routing decision the Chat panel honors.
+    val credentialStore = remember { CredentialStore(context.applicationContext) }
+    val chatRouter = remember(edgeModel) { ChatRouter(edgeModel) }
+    var activeProvider by remember { mutableStateOf(credentialStore.activeProvider) }
+    // The frontier toggle Chat flips back to when switched off Edge (defaults to Anthropic).
+    var lastFrontier by remember {
+        mutableStateOf(activeProvider.takeUnless { it.isEdge } ?: ProviderId.AnthropicDirect)
+    }
+    fun selectProvider(provider: ProviderId) {
+        activeProvider = provider
+        if (!provider.isEdge) lastFrontier = provider
+        credentialStore.activeProvider = provider
+    }
 
     // On-device TTS for agent output (Session 4 / Spec §5). Defaults to VoxSherpa
     // (Kokoro-82M), falls back to system TTS if VoxSherpa isn't installed.
@@ -163,15 +180,19 @@ fun HorizonsApp() {
                 when (selectedPanel) {
                     Panel.Chat -> ChatPanel(
                         messages = messages,
-                        frontierEnabled = frontierEnabled,
-                        onProviderToggle = { frontierEnabled = it },
+                        frontierEnabled = !activeProvider.isEdge,
+                        activeProviderLabel = activeProvider.displayName,
+                        onProviderToggle = { toCloud ->
+                            selectProvider(if (toCloud) lastFrontier else ProviderId.Edge)
+                        },
                         onSend = { text ->
                             messages.add(ChatMessage(ChatRole.User, text))
                             val replyIndex = messages.size
                             messages.add(ChatMessage(ChatRole.Assistant, ""))
+                            val config = credentialStore.load(activeProvider)
                             scope.launch {
                                 val sb = StringBuilder()
-                                edgeModel.generateStream(text).collect { token ->
+                                chatRouter.stream(activeProvider, config, text).collect { token ->
                                     sb.append(token)
                                     messages[replyIndex] =
                                         messages[replyIndex].copy(text = sb.toString())
@@ -181,7 +202,12 @@ fun HorizonsApp() {
                         onSpeak = { text -> voiceEngine.speak(text) },
                         modifier = panelModifier,
                     )
-                    Panel.Router -> RouterPanel(panelModifier)
+                    Panel.Router -> RouterPanel(
+                        activeProvider = activeProvider,
+                        onSelectProvider = ::selectProvider,
+                        credentialStore = credentialStore,
+                        modifier = panelModifier,
+                    )
                     Panel.Terminal -> TerminalPanel(panelModifier)
                     Panel.Diagnostics -> DiagnosticsPanel(panelModifier)
                 }

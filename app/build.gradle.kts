@@ -33,7 +33,7 @@ android {
         minSdk = 27
         targetSdk = 35
         versionCode = 1
-        versionName = "0.3.0"
+        versionName = "0.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -103,6 +103,11 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
 
     implementation(libs.kotlinx.coroutines.android)
+
+    // Layer 1 — API layer (Spec §4 / Architecture §5): OkHttp drives the SSE /
+    // NDJSON streams; security-crypto backs the encrypted credential store.
+    implementation(libs.okhttp)
+    implementation(libs.androidx.security.crypto)
 
     // On-device OmniNeural-4B runtime. Only pulled for the Nexa-enabled build so
     // CI (default build) never resolves the native SDK. See docs/N0_V4_ARCHITECTURE_v3 §4.
