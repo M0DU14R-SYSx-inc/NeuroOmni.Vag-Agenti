@@ -21,9 +21,32 @@ object EdgeModelFactory {
 
     private const val TAG = "EdgeModelFactory"
 
-    /** Expected on-device location of the OmniNeural model (Architecture §4 / §7). */
+    /** Sub-directory (under both external- and internal-files dirs) holding the model. */
     const val OMNI_NEURAL_DIR = "models"
-    const val OMNI_NEURAL_FILE = "omni-neural.nexa"
+
+    /**
+     * The model is matched by extension, not an exact name, so the on-disk filename
+     * (e.g. `weights-8-8.nexa`, a W8A8 quant of OmniNeural-4B) doesn't have to be
+     * known ahead of time. The first `*.nexa` file found wins.
+     */
+    const val MODEL_EXTENSION = "nexa"
+
+    /**
+     * Where the importer drops the model and where this factory looks first:
+     * the app-specific external files dir, which is `adb push`-able AND writable by
+     * the in-app picker with no runtime permission. Falls back to internal files dir.
+     */
+    fun modelsDirs(context: Context): List<File> = buildList {
+        context.getExternalFilesDir(OMNI_NEURAL_DIR)?.let(::add)
+        add(File(context.filesDir, OMNI_NEURAL_DIR))
+    }
+
+    /** The installed model file (first `*.nexa` in any models dir), or null if none. */
+    fun installedModel(context: Context): File? = modelsDirs(context)
+        .asSequence()
+        .filter { it.isDirectory }
+        .flatMap { it.listFiles()?.asSequence() ?: emptySequence() }
+        .firstOrNull { it.isFile && it.extension.equals(MODEL_EXTENSION, ignoreCase = true) }
 
     fun create(context: Context): EdgeModel {
         val reason = unavailableReason(context)
@@ -32,7 +55,7 @@ object EdgeModelFactory {
             return StubEdgeModel()
         }
         return try {
-            val modelPath = File(File(context.filesDir, OMNI_NEURAL_DIR), OMNI_NEURAL_FILE).absolutePath
+            val modelPath = installedModel(context)!!.absolutePath
             val clazz = Class.forName("com.neuroomni.horizons.model.NexaOmniNeuralEdgeModel")
             clazz.getConstructor(Context::class.java, String::class.java, String::class.java)
                 .newInstance(context.applicationContext, BuildConfig.NEXA_TOKEN, modelPath) as EdgeModel
@@ -46,8 +69,9 @@ object EdgeModelFactory {
     private fun unavailableReason(context: Context): String? {
         if (!BuildConfig.NEXA_ENABLED) return "built without nexaEnabled"
         if (BuildConfig.NEXA_TOKEN.isBlank()) return "NEXA_TOKEN absent"
-        val modelFile = File(File(context.filesDir, OMNI_NEURAL_DIR), OMNI_NEURAL_FILE)
-        if (!modelFile.exists()) return "model file missing at ${modelFile.path}"
+        if (installedModel(context) == null) {
+            return "no *.${MODEL_EXTENSION} model in ${modelsDirs(context).joinToString { it.path }}"
+        }
         return null
     }
 }
