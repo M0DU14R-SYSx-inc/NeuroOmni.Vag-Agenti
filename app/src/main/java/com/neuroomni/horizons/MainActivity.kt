@@ -52,6 +52,7 @@ import com.neuroomni.horizons.ui.panels.DiagnosticsPanel
 import com.neuroomni.horizons.ui.panels.RouterPanel
 import com.neuroomni.horizons.ui.panels.TerminalPanel
 import com.neuroomni.horizons.ui.theme.HorizonsTheme
+import com.neuroomni.horizons.voice.LocalVoiceEngine
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,8 +89,14 @@ fun HorizonsApp() {
     val edgeModel: EdgeModel = remember { EdgeModelFactory.create(context) }
     val scope = rememberCoroutineScope()
 
+    // On-device TTS for agent output (Session 4 / Spec §5). Defaults to VoxSherpa
+    // (Kokoro-82M), falls back to system TTS if VoxSherpa isn't installed.
+    val voiceEngine = remember { LocalVoiceEngine(context.applicationContext) }
+
     LaunchedEffect(edgeModel) { edgeModel.initialize() }
     DisposableEffect(edgeModel) { onDispose { edgeModel.release() } }
+    LaunchedEffect(voiceEngine) { voiceEngine.initialize() }
+    DisposableEffect(voiceEngine) { onDispose { voiceEngine.shutdown() } }
 
     Scaffold(
         topBar = {
@@ -138,6 +145,7 @@ fun HorizonsApp() {
                             }
                         }
                     },
+                    onSpeak = { text -> voiceEngine.speak(text) },
                     modifier = panelModifier,
                 )
                 Panel.Router -> RouterPanel(panelModifier)

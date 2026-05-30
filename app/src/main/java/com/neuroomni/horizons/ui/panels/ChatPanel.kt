@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +45,7 @@ fun ChatPanel(
     frontierEnabled: Boolean,
     onProviderToggle: (Boolean) -> Unit,
     onSend: (String) -> Unit,
+    onSpeak: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var draft by remember { mutableStateOf("") }
@@ -77,6 +79,8 @@ fun ChatPanel(
             }
         }
 
+        val latestAgentText = messages.lastOrNull { it.role == ChatRole.Assistant }?.text
+
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -95,6 +99,13 @@ fun ChatPanel(
                     onSend = { submit() },
                 ),
             )
+            // Speak the latest agent message aloud (Session 4 / Spec §5).
+            IconButton(
+                onClick = { latestAgentText?.let(onSpeak) },
+                enabled = !latestAgentText.isNullOrBlank(),
+            ) {
+                Icon(Icons.Filled.VolumeUp, contentDescription = "Speak latest reply")
+            }
             IconButton(onClick = { submit() }) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
             }
