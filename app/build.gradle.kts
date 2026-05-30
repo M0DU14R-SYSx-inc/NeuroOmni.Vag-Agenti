@@ -41,7 +41,24 @@ android {
         buildConfigField("String", "NEXA_TOKEN", "\"$nexaToken\"")
     }
 
+    signingConfigs {
+        // Stable, committed debug key so every CI/local build is signed with the
+        // SAME certificate. Without this, GitHub Actions generates a fresh debug
+        // key per run, and installing a new APK over an old one fails with a
+        // signature-mismatch ("conflicts with an existing package") error.
+        // A debug keystore is not a secret — these are the well-known defaults.
+        getByName("debug") {
+            storeFile = rootProject.file("app/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

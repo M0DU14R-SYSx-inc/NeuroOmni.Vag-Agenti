@@ -13,6 +13,7 @@ captures/
 # Local config & secrets (NEVER commit keys — see Architecture §12)
 local.properties
 *.keystore
+!app/debug.keystore
 *.jks
 google-services.json
 service-account*.json
