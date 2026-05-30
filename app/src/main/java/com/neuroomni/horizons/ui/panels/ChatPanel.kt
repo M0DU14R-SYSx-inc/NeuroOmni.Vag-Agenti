@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -100,13 +101,23 @@ fun ChatPanel(
                 ),
             )
             // Speak the latest agent message aloud (Session 4 / Spec §5).
+            val speakEnabled = !latestAgentText.isNullOrBlank()
             IconButton(
                 onClick = { latestAgentText?.let(onSpeak) },
-                enabled = !latestAgentText.isNullOrBlank(),
+                enabled = speakEnabled,
+                colors = IconButtonDefaults.iconButtonColors(
+                    contentColor = MaterialTheme.colorScheme.secondary,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
             ) {
                 Icon(Icons.Filled.VolumeUp, contentDescription = "Speak latest reply")
             }
-            IconButton(onClick = { submit() }) {
+            IconButton(
+                onClick = { submit() },
+                colors = IconButtonDefaults.iconButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary,
+                ),
+            ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
             }
         }
