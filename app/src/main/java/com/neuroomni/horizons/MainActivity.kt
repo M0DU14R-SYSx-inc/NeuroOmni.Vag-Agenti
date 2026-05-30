@@ -96,15 +96,14 @@ fun HorizonsApp() {
     var selectedPanel by remember { mutableStateOf(Panel.Chat) }
     var instanceProfile by remember { mutableStateOf(InstanceProfile.Personal) }
 
-    // Chat state + the currently-selected edge model (defaults to the CI-safe stub).
+    // Chat state + provider routing (Architecture §5). Keys persist in the Keystore-backed
+    // store; the active toggle is the routing decision the Chat panel honors.
     val messages = remember { mutableStateListOf<ChatMessage>() }
     val context = LocalContext.current
-    val edgeModel: EdgeModel = remember { EdgeModelFactory.create(context) }
-    val scope = rememberCoroutineScope()
-
-    // Layer 1 — provider routing (Architecture §5). Keys persist in the Keystore-backed
-    // store; the active toggle is the routing decision the Chat panel honors.
     val credentialStore = remember { CredentialStore(context.applicationContext) }
+    // Edge model uses the in-app Nexa key (falls back to the stub when unset/disabled).
+    val edgeModel: EdgeModel = remember { EdgeModelFactory.create(context, credentialStore.nexaToken) }
+    val scope = rememberCoroutineScope()
     val chatRouter = remember(edgeModel) { ChatRouter(edgeModel) }
     var activeProvider by remember { mutableStateOf(credentialStore.activeProvider) }
     // The frontier toggle Chat flips back to when switched off Edge (defaults to Anthropic).

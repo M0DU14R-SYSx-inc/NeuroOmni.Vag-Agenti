@@ -59,6 +59,15 @@ class CredentialStore(context: Context) {
         get() = ProviderId.fromName(get(KEY_ACTIVE, ProviderId.Edge.name))
         set(value) = put(KEY_ACTIVE, value.name)
 
+    /**
+     * The universal Nexa SDK key for the on-device OmniNeural runtime. Kept here in
+     * the encrypted store (Architecture §12) rather than baked into the APK, so one
+     * generic Nexa build works for everyone and the key never ships in an artifact.
+     */
+    var nexaToken: String
+        get() = get(KEY_NEXA_TOKEN, "")
+        set(value) = put(KEY_NEXA_TOKEN, value)
+
     private fun get(k: String, default: String): String =
         prefs?.getString(k, default) ?: memory[k] ?: default
 
@@ -76,5 +85,6 @@ class CredentialStore(context: Context) {
         const val KEY_MODEL = "modelString"
         const val KEY_MAX_TOKENS = "maxTokens"
         const val KEY_ACTIVE = "activeProvider"
+        const val KEY_NEXA_TOKEN = "nexaToken"
     }
 }

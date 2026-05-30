@@ -48,8 +48,12 @@ object EdgeModelFactory {
         .flatMap { it.listFiles()?.asSequence() ?: emptySequence() }
         .firstOrNull { it.isFile && it.extension.equals(MODEL_EXTENSION, ignoreCase = true) }
 
-    fun create(context: Context): EdgeModel {
-        val reason = unavailableReason(context)
+    /**
+     * @param nexaToken the universal Nexa key. Defaults to the in-app encrypted store
+     *   value (Architecture §12), falling back to BuildConfig for locally-baked builds.
+     */
+    fun create(context: Context, nexaToken: String = BuildConfig.NEXA_TOKEN): EdgeModel {
+        val reason = unavailableReason(context, nexaToken)
         if (reason != null) {
             Log.i(TAG, "Using StubEdgeModel: $reason")
             return StubEdgeModel()
@@ -58,7 +62,7 @@ object EdgeModelFactory {
             val modelPath = installedModel(context)!!.absolutePath
             val clazz = Class.forName("com.neuroomni.horizons.model.NexaOmniNeuralEdgeModel")
             clazz.getConstructor(Context::class.java, String::class.java, String::class.java)
-                .newInstance(context.applicationContext, BuildConfig.NEXA_TOKEN, modelPath) as EdgeModel
+                .newInstance(context.applicationContext, nexaToken, modelPath) as EdgeModel
         } catch (t: Throwable) {
             Log.w(TAG, "Nexa edge model unavailable, falling back to stub", t)
             StubEdgeModel()
@@ -66,9 +70,9 @@ object EdgeModelFactory {
     }
 
     /** Null when the Nexa model can run; otherwise a human-readable reason for the fallback. */
-    private fun unavailableReason(context: Context): String? {
+    private fun unavailableReason(context: Context, nexaToken: String): String? {
         if (!BuildConfig.NEXA_ENABLED) return "built without nexaEnabled"
-        if (BuildConfig.NEXA_TOKEN.isBlank()) return "NEXA_TOKEN absent"
+        if (nexaToken.isBlank()) return "Nexa key not set"
         if (installedModel(context) == null) {
             return "no *.${MODEL_EXTENSION} model in ${modelsDirs(context).joinToString { it.path }}"
         }

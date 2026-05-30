@@ -111,7 +111,7 @@ fun RouterPanel(
 
         // --- Endpoint configuration (frontier HTTP providers only) ---------
         when {
-            activeProvider.isEdge -> EdgeModelCard()
+            activeProvider.isEdge -> EdgeModelCard(credentialStore)
             activeProvider.transport == Transport.TermuxShell -> Text(
                 "${activeProvider.displayName} routes through the Termux shell layer — " +
                     "coming in Session 6 (the same path Tasker rides on).",
@@ -185,10 +185,16 @@ private fun LabeledValue(label: String, value: String) {
  * file from Downloads and the app copies it into the models dir [EdgeModelFactory] reads.
  * Surfaces honestly whether this build can actually run it on the NPU.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EdgeModelCard() {
+private fun EdgeModelCard(credentialStore: CredentialStore) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    // Universal Nexa key, entered here and kept in the encrypted store (Architecture §12).
+    var nexaKey by remember { mutableStateOf(credentialStore.nexaToken) }
+    var keyVisible by remember { mutableStateOf(false) }
+    var keySaved by remember { mutableStateOf(false) }
 
     var installed by remember { mutableStateOf(EdgeModelFactory.installedModel(context)) }
     var copying by remember { mutableStateOf(false) }
@@ -231,6 +237,41 @@ private fun EdgeModelCard() {
                     "the model here so it's staged and ready.",
                 style = MaterialTheme.typography.bodySmall,
                 color = AccentYellow,
+            )
+        }
+
+        // Nexa key entry — stored encrypted, applied on next app start.
+        OutlinedTextField(
+            value = nexaKey,
+            onValueChange = { nexaKey = it; keySaved = false },
+            label = { Text("Nexa key") },
+            singleLine = true,
+            visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { keyVisible = !keyVisible }) {
+                    Icon(
+                        if (keyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                        contentDescription = if (keyVisible) "Hide key" else "Show key",
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = {
+                credentialStore.nexaToken = nexaKey.trim()
+                keySaved = true
+            }) { Text("Save key") }
+            val keyStatus = when {
+                keySaved -> "Saved — restart to apply" to AccentGreen
+                nexaKey.isNotBlank() -> "Key set" to HorizonsOnSurfaceMuted
+                else -> "No key yet" to AccentYellow
+            }
+            Text(
+                keyStatus.first,
+                style = MaterialTheme.typography.bodySmall,
+                color = keyStatus.second,
+                modifier = Modifier.padding(start = 8.dp),
             )
         }
 
