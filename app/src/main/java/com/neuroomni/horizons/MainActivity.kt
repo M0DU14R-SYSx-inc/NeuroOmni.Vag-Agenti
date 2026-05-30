@@ -39,12 +39,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.neuroomni.horizons.model.ChatMessage
 import com.neuroomni.horizons.model.ChatRole
 import com.neuroomni.horizons.model.EdgeModel
+import com.neuroomni.horizons.model.EdgeModelFactory
 import com.neuroomni.horizons.model.InstanceProfile
-import com.neuroomni.horizons.model.StubEdgeModel
 import kotlinx.coroutines.launch
 import com.neuroomni.horizons.ui.panels.ChatPanel
 import com.neuroomni.horizons.ui.panels.DiagnosticsPanel
@@ -83,7 +84,8 @@ fun HorizonsApp() {
     // Chat state + the currently-selected edge model (defaults to the CI-safe stub).
     val messages = remember { mutableStateListOf<ChatMessage>() }
     var frontierEnabled by remember { mutableStateOf(false) }
-    val edgeModel: EdgeModel = remember { StubEdgeModel() }
+    val context = LocalContext.current
+    val edgeModel: EdgeModel = remember { EdgeModelFactory.create(context) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(edgeModel) { edgeModel.initialize() }

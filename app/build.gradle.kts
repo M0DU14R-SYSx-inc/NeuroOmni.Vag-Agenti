@@ -1,8 +1,26 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+// --- Nexa opt-in -----------------------------------------------------------
+// The Nexa SDK + OmniNeural implementation are only built when explicitly
+// enabled (-PnexaEnabled=true), e.g. on the Razr. CI builds the default
+// (stub-only) variant so it never depends on the native SDK or a token.
+val nexaEnabled = (project.findProperty("nexaEnabled") as String?)?.toBoolean() ?: false
+
+// NEXA_TOKEN is read from local.properties (git-ignored) and exposed via
+// BuildConfig. Never hardcoded in source, never committed. Empty in CI.
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val nexaToken: String = (localProps.getProperty("NEXA_TOKEN")
+    ?: System.getenv("NEXA_TOKEN")
+    ?: "")
 
 android {
     namespace = "com.neuroomni.horizons"
@@ -10,15 +28,17 @@ android {
 
     defaultConfig {
         applicationId = "com.neuroomni.horizons"
-        // Floor for the shell/stub phase; keeps CI + emulators broad. Will rise when
-        // the on-device runtimes land (Nexa SDK / Hexagon, ONNX Runtime Mobile w/ Vulkan)
-        // since the Razr Ultra 2025 target is Android 14+ anyway.
+        // Floor for the shell/stub phase; keeps CI + emulators broad. The Nexa
+        // SDK itself requires minSdk 27 and a Snapdragon NPU at runtime.
         minSdk = 27
         targetSdk = 35
         versionCode = 1
         versionName = "0.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("boolean", "NEXA_ENABLED", nexaEnabled.toString())
+        buildConfigField("String", "NEXA_TOKEN", "\"$nexaToken\"")
     }
 
     buildTypes {
@@ -29,6 +49,13 @@ android {
                 "proguard-rules.pro",
             )
         }
+    }
+
+    // The OmniNeural implementation lives in a dedicated source set that is only
+    // compiled into the app when nexaEnabled is set. Default/CI builds never see it.
+    if (nexaEnabled) {
+        sourceSets.getByName("main").java.srcDir("src/nexa/java")
+        packaging { jniLibs.useLegacyPackaging = true }
     }
 
     compileOptions {
@@ -42,6 +69,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -58,6 +86,12 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
 
     implementation(libs.kotlinx.coroutines.android)
+
+    // On-device OmniNeural-4B runtime. Only pulled for the Nexa-enabled build so
+    // CI (default build) never resolves the native SDK. See docs/N0_V4_ARCHITECTURE_v3 §4.
+    if (nexaEnabled) {
+        implementation(libs.nexa.core)
+    }
 
     debugImplementation(libs.androidx.ui.tooling)
 }

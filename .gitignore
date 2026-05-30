@@ -18,6 +18,10 @@ google-services.json
 service-account*.json
 secrets.properties
 
+# On-device model weights — never committed (Architecture §4 / §7)
+*.nexa
+*.gguf
+
 # OS
 .DS_Store
 Thumbs.db
