@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.neuroomni.horizons.ui.theme.HorizonsBackdrop
+import com.neuroomni.horizons.ui.theme.PanelScrim
 import com.neuroomni.horizons.model.ChatMessage
 import com.neuroomni.horizons.model.ChatRole
 import com.neuroomni.horizons.model.EdgeModel
@@ -151,7 +153,13 @@ fun HorizonsApp() {
                     onSelect = { instanceProfile = it },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                val panelModifier = Modifier.weight(1f)
+                // Dark slate scrim so panel text stays readable over the bright
+                // marble streak in the backdrop (the backdrop still frames the app
+                // via the top bar, profile chips, and nav bar).
+                val panelModifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(PanelScrim)
                 when (selectedPanel) {
                     Panel.Chat -> ChatPanel(
                         messages = messages,

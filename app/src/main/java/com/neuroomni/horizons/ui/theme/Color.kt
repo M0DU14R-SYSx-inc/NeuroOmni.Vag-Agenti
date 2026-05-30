@@ -21,3 +21,7 @@ val AccentGreen = Color(0xFF3FB950)
 val TealDeep = Color(0xFF0B3A40)
 val TealMid = Color(0xFF0D1B26)
 val TealAbyss = Color(0xFF060A0D)
+
+// Dark slate scrim that panel content sits on, so text stays readable over the
+// bright marble streak in the backdrop. Matches the near-black at the screen bottom.
+val PanelScrim = Color(0xE60A0F14)
