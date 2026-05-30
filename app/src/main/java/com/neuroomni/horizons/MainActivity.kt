@@ -4,11 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -38,15 +39,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.neuroomni.horizons.ui.theme.TealAbyss
-import com.neuroomni.horizons.ui.theme.TealDeep
-import com.neuroomni.horizons.ui.theme.TealMid
+import com.neuroomni.horizons.ui.theme.HorizonsBackdrop
 import com.neuroomni.horizons.model.ChatMessage
 import com.neuroomni.horizons.model.ChatRole
 import com.neuroomni.horizons.model.EdgeModel
@@ -109,75 +107,76 @@ fun HorizonsApp() {
     LaunchedEffect(voiceEngine) { voiceEngine.initialize() }
     DisposableEffect(voiceEngine) { onDispose { voiceEngine.shutdown() } }
 
-    // Teal liquid-marble gradient behind the whole app (wallpaper-inspired).
-    val appBackground = Brush.linearGradient(listOf(TealDeep, TealMid, TealAbyss))
+    // Teal liquid-marble background (wallpaper-inspired), drawn behind the panels.
+    Box(modifier = Modifier.fillMaxSize()) {
+        HorizonsBackdrop()
 
-    Scaffold(
-        modifier = Modifier.background(appBackground),
-        containerColor = Color.Transparent,
-        topBar = {
-            TopAppBar(
-                title = { Text("Horizons") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                ),
-            )
-        },
-        bottomBar = {
-            NavigationBar(containerColor = Color.Transparent) {
-                Panel.entries.forEach { panel ->
-                    NavigationBarItem(
-                        selected = selectedPanel == panel,
-                        onClick = { selectedPanel = panel },
-                        icon = {
-                            when {
-                                panel.iconRes != null -> Icon(
-                                    painter = painterResource(panel.iconRes),
-                                    contentDescription = panel.title,
-                                )
-                                panel.icon != null -> Icon(
-                                    imageVector = panel.icon,
-                                    contentDescription = panel.title,
-                                )
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = { Text("Horizons") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                    ),
+                )
+            },
+            bottomBar = {
+                NavigationBar(containerColor = Color.Transparent) {
+                    Panel.entries.forEach { panel ->
+                        NavigationBarItem(
+                            selected = selectedPanel == panel,
+                            onClick = { selectedPanel = panel },
+                            icon = {
+                                when {
+                                    panel.iconRes != null -> Icon(
+                                        painter = painterResource(panel.iconRes),
+                                        contentDescription = panel.title,
+                                    )
+                                    panel.icon != null -> Icon(
+                                        imageVector = panel.icon,
+                                        contentDescription = panel.title,
+                                    )
+                                }
+                            },
+                            label = { Text(panel.title, maxLines = 1, softWrap = false) },
+                        )
+                    }
+                }
+            },
+        ) { innerPadding ->
+            Column(modifier = Modifier.padding(innerPadding)) {
+                InstanceProfileSelector(
+                    selected = instanceProfile,
+                    onSelect = { instanceProfile = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val panelModifier = Modifier.weight(1f)
+                when (selectedPanel) {
+                    Panel.Chat -> ChatPanel(
+                        messages = messages,
+                        frontierEnabled = frontierEnabled,
+                        onProviderToggle = { frontierEnabled = it },
+                        onSend = { text ->
+                            messages.add(ChatMessage(ChatRole.User, text))
+                            val replyIndex = messages.size
+                            messages.add(ChatMessage(ChatRole.Assistant, ""))
+                            scope.launch {
+                                val sb = StringBuilder()
+                                edgeModel.generateStream(text).collect { token ->
+                                    sb.append(token)
+                                    messages[replyIndex] =
+                                        messages[replyIndex].copy(text = sb.toString())
+                                }
                             }
                         },
-                        label = { Text(panel.title, maxLines = 1, softWrap = false) },
+                        onSpeak = { text -> voiceEngine.speak(text) },
+                        modifier = panelModifier,
                     )
+                    Panel.Router -> RouterPanel(panelModifier)
+                    Panel.Terminal -> TerminalPanel(panelModifier)
+                    Panel.Diagnostics -> DiagnosticsPanel(panelModifier)
                 }
-            }
-        },
-    ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding)) {
-            InstanceProfileSelector(
-                selected = instanceProfile,
-                onSelect = { instanceProfile = it },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            val panelModifier = Modifier.weight(1f)
-            when (selectedPanel) {
-                Panel.Chat -> ChatPanel(
-                    messages = messages,
-                    frontierEnabled = frontierEnabled,
-                    onProviderToggle = { frontierEnabled = it },
-                    onSend = { text ->
-                        messages.add(ChatMessage(ChatRole.User, text))
-                        val replyIndex = messages.size
-                        messages.add(ChatMessage(ChatRole.Assistant, ""))
-                        scope.launch {
-                            val sb = StringBuilder()
-                            edgeModel.generateStream(text).collect { token ->
-                                sb.append(token)
-                                messages[replyIndex] =
-                                    messages[replyIndex].copy(text = sb.toString())
-                            }
-                        }
-                    },
-                    onSpeak = { text -> voiceEngine.speak(text) },
-                    modifier = panelModifier,
-                )
-                Panel.Router -> RouterPanel(panelModifier)
-                Panel.Terminal -> TerminalPanel(panelModifier)
-                Panel.Diagnostics -> DiagnosticsPanel(panelModifier)
             }
         }
     }
