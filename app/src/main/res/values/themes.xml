@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base app theme. The real UI theming is done in Compose (ui/theme/Theme.kt);
+         this XML theme only governs the window before Compose composes. -->
+    <style name="Theme.Horizons" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/horizons_background</item>
+        <item name="android:statusBarColor">@color/horizons_background</item>
+        <item name="android:navigationBarColor">@color/horizons_background</item>
+    </style>
+</resources>
