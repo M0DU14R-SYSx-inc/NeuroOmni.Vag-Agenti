@@ -52,7 +52,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.neuroomni.horizons.ui.theme.AccentRed
 import com.neuroomni.horizons.ui.theme.HorizonsBackdrop
+import com.neuroomni.horizons.ui.theme.HorizonsOnBackground
+import com.neuroomni.horizons.ui.theme.HorizonsOnSurfaceMuted
 import com.neuroomni.horizons.ui.theme.PanelScrim
 import com.neuroomni.horizons.model.ChatMessage
 import com.neuroomni.horizons.model.ChatRole
