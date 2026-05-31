@@ -10,8 +10,8 @@ import java.io.File
  *
  * Returns [NexaOmniNeuralEdgeModel] only when ALL of these hold:
  *   - the app was built with `-PnexaEnabled=true` (BuildConfig.NEXA_ENABLED),
- *   - a NEXA_TOKEN is present (BuildConfig.NEXA_TOKEN),
- *   - the OmniNeural model file exists under the app's files dir.
+ *   - a Nexa key is present (passed in / BuildConfig),
+ *   - the OmniNeural `nexaml/` model folder exists under the app's files dir.
  * Otherwise it falls back to [StubEdgeModel] so CI and tokenless devices stay green.
  *
  * The Nexa class is instantiated reflectively so the default (stub-only) build has
@@ -24,12 +24,15 @@ object EdgeModelFactory {
     /** Sub-directory (under both external- and internal-files dirs) holding the model. */
     const val OMNI_NEURAL_DIR = "models"
 
-    /**
-     * The model is matched by extension, not an exact name, so the on-disk filename
-     * (e.g. `weights-8-8.nexa`, a W8A8 quant of OmniNeural-4B) doesn't have to be
-     * known ahead of time. The first `*.nexa` file found wins.
-     */
     const val MODEL_EXTENSION = "nexa"
+
+    /**
+     * OmniNeural-4B ships as a multi-file set under a `nexaml/` folder
+     * (language_model / vision_encoder / audio_encoder / projector / embedding, all
+     * `.nexa`, plus tokenizer + processor config). The runtime is given the *folder*,
+     * not a single file — the LLM lives in this one and the SDK resolves its siblings.
+     */
+    const val PRIMARY_MODEL_FILE = "language_model.nexa"
 
     /**
      * Where the importer drops the model and where this factory looks first:
@@ -41,17 +44,29 @@ object EdgeModelFactory {
         add(File(context.filesDir, OMNI_NEURAL_DIR))
     }
 
-    /** The installed model file (first `*.nexa` in any models dir), or null if none. */
+    /**
+     * The installed model directory — the folder containing [PRIMARY_MODEL_FILE]
+     * (i.e. the `nexaml/` dir). Searched up to two levels deep under each models dir so
+     * either `models/nexaml/…` or `models/…` layouts resolve. Null if not present.
+     */
+    fun installedModelDir(context: Context): File? {
+        for (root in modelsDirs(context)) {
+            if (!root.isDirectory) continue
+            // The folder holding language_model.nexa: root itself, or an immediate subdir.
+            val candidates = sequenceOf(root) +
+                (root.listFiles()?.asSequence()?.filter { it.isDirectory } ?: emptySequence())
+            candidates.firstOrNull { File(it, PRIMARY_MODEL_FILE).isFile }?.let { return it }
+        }
+        return null
+    }
+
+    /** Any installed `.nexa` (used for "is something staged?" UI), or null. */
     fun installedModel(context: Context): File? = modelsDirs(context)
         .asSequence()
         .filter { it.isDirectory }
-        .flatMap { it.listFiles()?.asSequence() ?: emptySequence() }
+        .flatMap { dir -> dir.walkTopDown().maxDepth(2) }
         .firstOrNull { it.isFile && it.extension.equals(MODEL_EXTENSION, ignoreCase = true) }
 
-    /**
-     * @param nexaToken the universal Nexa key. Defaults to the in-app encrypted store
-     *   value (Architecture §12), falling back to BuildConfig for locally-baked builds.
-     */
     fun create(context: Context, nexaToken: String = BuildConfig.NEXA_TOKEN): EdgeModel {
         val reason = unavailableReason(context, nexaToken)
         if (reason != null) {
@@ -59,7 +74,8 @@ object EdgeModelFactory {
             return StubEdgeModel()
         }
         return try {
-            val modelPath = installedModel(context)!!.absolutePath
+            // Pass the nexaml/ folder; the SDK loads language_model.nexa + siblings.
+            val modelPath = installedModelDir(context)!!.absolutePath
             val clazz = Class.forName("com.neuroomni.horizons.model.NexaOmniNeuralEdgeModel")
             clazz.getConstructor(Context::class.java, String::class.java, String::class.java)
                 .newInstance(context.applicationContext, nexaToken, modelPath) as EdgeModel
@@ -73,8 +89,8 @@ object EdgeModelFactory {
     private fun unavailableReason(context: Context, nexaToken: String): String? {
         if (!BuildConfig.NEXA_ENABLED) return "built without nexaEnabled"
         if (nexaToken.isBlank()) return "Nexa key not set"
-        if (installedModel(context) == null) {
-            return "no *.${MODEL_EXTENSION} model in ${modelsDirs(context).joinToString { it.path }}"
+        if (installedModelDir(context) == null) {
+            return "no $PRIMARY_MODEL_FILE (nexaml/ folder) under ${modelsDirs(context).joinToString { it.path }}"
         }
         return null
     }

@@ -3,6 +3,7 @@ package com.neuroomni.horizons.model
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -74,6 +75,82 @@ object EdgeModelInstaller {
                 throw t
             }
         }
+    }
+
+    /**
+     * Import a whole picked folder (the OmniNeural `nexaml/` directory) into the models
+     * dir, preserving its tree. OmniNeural-4B is multi-file (language_model /
+     * vision_encoder / audio_encoder / projector / embedding + tokenizer), and the SDK
+     * is given the folder, so all parts must land together. Copied once because the
+     * runtime needs real filesystem paths, not content Uris.
+     *
+     * Returns the installed folder (named after the picked tree, e.g. `nexaml`).
+     */
+    suspend fun installTree(
+        context: Context,
+        treeUri: Uri,
+        onProgress: (Progress) -> Unit = {},
+    ): Result<File> = withContext(Dispatchers.IO) {
+        runCatching {
+            val root = DocumentFile.fromTreeUri(context, treeUri)
+                ?: error("Could not open the selected folder")
+            val files = mutableListOf<DocumentFile>()
+            collectFiles(root, files)
+            require(files.isNotEmpty()) { "Folder is empty" }
+            val total = files.sumOf { it.length() }
+
+            val modelsDir = (context.getExternalFilesDir(EdgeModelFactory.OMNI_NEURAL_DIR)
+                ?: File(context.filesDir, EdgeModelFactory.OMNI_NEURAL_DIR)).apply { mkdirs() }
+            val destRoot = File(modelsDir, sanitize(root.name ?: "nexaml"))
+            // Fresh copy: drop any previous import so removed files don't linger.
+            if (destRoot.exists()) destRoot.deleteRecursively()
+            destRoot.mkdirs()
+
+            var copied = 0L
+            var lastReported = 0L
+            val resolver = context.contentResolver
+            for (doc in files) {
+                coroutineContext.ensureActive()
+                val rel = relativePath(root, doc) ?: continue
+                val outFile = File(destRoot, rel).apply { parentFile?.mkdirs() }
+                resolver.openInputStream(doc.uri)?.use { input ->
+                    outFile.outputStream().use { output ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        while (true) {
+                            coroutineContext.ensureActive()
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            output.write(buffer, 0, read)
+                            copied += read
+                            if (copied - lastReported >= PROGRESS_STEP) {
+                                onProgress(Progress(copied, total))
+                                lastReported = copied
+                            }
+                        }
+                    }
+                } ?: error("Could not read ${doc.name}")
+            }
+            onProgress(Progress(copied, total))
+            destRoot
+        }
+    }
+
+    /** Depth-first collect of every file (not directory) under [dir]. */
+    private fun collectFiles(dir: DocumentFile, into: MutableList<DocumentFile>) {
+        for (child in dir.listFiles()) {
+            if (child.isDirectory) collectFiles(child, into) else if (child.isFile) into.add(child)
+        }
+    }
+
+    /** Path of [doc] relative to [root], using document display names. */
+    private fun relativePath(root: DocumentFile, doc: DocumentFile): String? {
+        val parts = ArrayDeque<String>()
+        var cur: DocumentFile? = doc
+        while (cur != null && cur.uri != root.uri) {
+            parts.addFirst(cur.name ?: return null)
+            cur = cur.parentFile
+        }
+        return parts.joinToString(File.separator)
     }
 
     private fun querySize(context: Context, uri: Uri): Long =

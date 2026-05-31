@@ -54,6 +54,7 @@ import com.neuroomni.horizons.ui.theme.AccentGreen
 import com.neuroomni.horizons.ui.theme.AccentYellow
 import com.neuroomni.horizons.ui.theme.HorizonsOnSurfaceMuted
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * The Router panel (Spec §3 "Router Panel" / Architecture §5). Derek picks the active
@@ -196,24 +197,24 @@ private fun EdgeModelCard(credentialStore: CredentialStore) {
     var keyVisible by remember { mutableStateOf(false) }
     var keySaved by remember { mutableStateOf(false) }
 
-    var installed by remember { mutableStateOf(EdgeModelFactory.installedModel(context)) }
+    var installedDir by remember { mutableStateOf(EdgeModelFactory.installedModelDir(context)) }
     var copying by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<Float?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    // OmniNeural-4B is a multi-file set, so we import the whole `nexaml/` folder.
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val name = EdgeModelInstaller.queryName(context, uri) ?: "weights.${EdgeModelFactory.MODEL_EXTENSION}"
         copying = true
         progress = null
-        status = "Importing $name…"
+        status = "Importing model folder…"
         scope.launch {
-            val result = EdgeModelInstaller.install(context, uri, name) { p -> progress = p.fraction }
+            val result = EdgeModelInstaller.installTree(context, uri) { p -> progress = p.fraction }
             copying = false
             result
                 .onSuccess {
-                    installed = it
-                    status = "Imported ${it.name} (${formatSize(it.length())}). Restart the app to load it."
+                    installedDir = EdgeModelFactory.installedModelDir(context)
+                    status = "Imported ${it.name}/. Restart the app to load it on the NPU."
                 }
                 .onFailure { status = "Import failed: ${it.message}" }
         }
@@ -275,9 +276,9 @@ private fun EdgeModelCard(credentialStore: CredentialStore) {
             )
         }
 
-        installed?.let {
-            LabeledValue("Model", "${it.name} (${formatSize(it.length())})")
-        } ?: LabeledValue("Model", "none installed yet")
+        installedDir?.let {
+            LabeledValue("Model", "${it.name}/ (${formatSize(dirSize(it))})")
+        } ?: LabeledValue("Model", "no nexaml/ folder installed yet")
 
         if (copying) {
             val frac = progress
@@ -288,8 +289,8 @@ private fun EdgeModelCard(credentialStore: CredentialStore) {
             }
         }
 
-        Button(onClick = { picker.launch(arrayOf("*/*")) }, enabled = !copying) {
-            Text(if (installed != null) "Replace model file" else "Import model file")
+        Button(onClick = { picker.launch(null) }, enabled = !copying) {
+            Text(if (installedDir != null) "Replace model folder" else "Import nexaml folder")
         }
 
         status?.let {
@@ -297,6 +298,9 @@ private fun EdgeModelCard(credentialStore: CredentialStore) {
         }
     }
 }
+
+private fun dirSize(dir: File): Long =
+    dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
 
 private fun formatSize(bytes: Long): String = when {
     bytes >= 1L shl 30 -> "%.2f GB".format(bytes.toDouble() / (1L shl 30))

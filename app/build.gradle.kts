@@ -108,6 +108,7 @@ dependencies {
     // NDJSON streams; security-crypto backs the encrypted credential store.
     implementation(libs.okhttp)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.androidx.documentfile)
 
     // On-device OmniNeural-4B runtime. Only pulled for the Nexa-enabled build so
     // CI (default build) never resolves the native SDK. See docs/N0_V4_ARCHITECTURE_v3 §4.

@@ -9,6 +9,7 @@ coroutines = "1.9.0"
 nexa = "0.0.24"
 okhttp = "4.12.0"
 securityCrypto = "1.1.0-alpha06"
+documentfile = "1.0.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -28,6 +29,7 @@ nexa-core = { group = "ai.nexa", name = "core", version.ref = "nexa" }
 # Keystore-backed EncryptedSharedPreferences that hold provider API keys.
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -19,9 +19,10 @@ import kotlinx.coroutines.flow.mapNotNull
  * `-PnexaEnabled=true` build (src/nexa/java), so the default/CI build never references
  * the SDK.
  *
- * Constructed reflectively by [EdgeModelFactory] with (context, token, modelPath). The
- * SDK runtime takes no token — the Nexa key is for *downloading* the model, not running
- * it — so [token] is retained only to keep the reflective constructor stable.
+ * Constructed reflectively by [EdgeModelFactory] with (context, token, modelPath), where
+ * modelPath is the `nexaml/` folder (language_model + vision/audio encoders + projector +
+ * embedding). The SDK runtime takes no token — the Nexa key is for *downloading* the
+ * model, not running it — so [token] is retained only to keep the reflective ctor stable.
  */
 class NexaOmniNeuralEdgeModel(
     private val context: Context,
