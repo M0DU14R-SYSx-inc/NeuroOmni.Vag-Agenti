@@ -122,7 +122,15 @@ fun HorizonsApp() {
     // (Kokoro-82M), falls back to system TTS if VoxSherpa isn't installed.
     val voiceEngine = remember { LocalVoiceEngine(context.applicationContext) }
 
-    LaunchedEffect(edgeModel) { edgeModel.initialize() }
+    // Surfaced to the chat so a failed NPU start shows the real reason instead of
+    // leaving a dead model that hard-crashes on the first question.
+    var edgeInitError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(edgeModel) {
+        edgeInitError = edgeModel.initialize().exceptionOrNull()?.let {
+            android.util.Log.w("MainActivity", "Edge model init failed", it)
+            it.message ?: it.javaClass.simpleName
+        }
+    }
     DisposableEffect(edgeModel) { onDispose { edgeModel.release() } }
     LaunchedEffect(voiceEngine) { voiceEngine.initialize() }
     DisposableEffect(voiceEngine) { onDispose { voiceEngine.shutdown() } }
@@ -198,10 +206,24 @@ fun HorizonsApp() {
                             val config = credentialStore.load(activeProvider)
                             scope.launch {
                                 val sb = StringBuilder()
-                                chatRouter.stream(activeProvider, config, text).collect { token ->
-                                    sb.append(token)
-                                    messages[replyIndex] =
-                                        messages[replyIndex].copy(text = sb.toString())
+                                try {
+                                    chatRouter.stream(activeProvider, config, text).collect { token ->
+                                        sb.append(token)
+                                        messages[replyIndex] =
+                                            messages[replyIndex].copy(text = sb.toString())
+                                    }
+                                } catch (ce: kotlinx.coroutines.CancellationException) {
+                                    throw ce
+                                } catch (t: Throwable) {
+                                    // A model/network failure must not take the app down — show why.
+                                    android.util.Log.w("MainActivity", "Chat stream failed", t)
+                                    val detail = if (activeProvider.isEdge && edgeInitError != null) {
+                                        "Edge model didn't start: $edgeInitError"
+                                    } else {
+                                        t.message ?: t.javaClass.simpleName
+                                    }
+                                    val shown = if (sb.isEmpty()) "⚠️ $detail" else "$sb\n\n⚠️ $detail"
+                                    messages[replyIndex] = messages[replyIndex].copy(text = shown)
                                 }
                             }
                         },
