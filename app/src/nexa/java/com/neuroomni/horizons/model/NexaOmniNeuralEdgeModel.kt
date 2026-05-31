@@ -5,12 +5,13 @@ import android.util.Log
 import com.nexa.sdk.NexaSdk
 import com.nexa.sdk.VlmWrapper
 import com.nexa.sdk.bean.GenerationConfig
+import com.nexa.sdk.bean.LlmStreamResult
 import com.nexa.sdk.bean.ModelConfig
 import com.nexa.sdk.bean.VlmCreateInput
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 
 /**
  * Real on-device [EdgeModel]: OmniNeural-4B on the Hexagon NPU via the Nexa Android
@@ -19,8 +20,8 @@ import kotlinx.coroutines.flow.map
  * the SDK.
  *
  * Constructed reflectively by [EdgeModelFactory] with (context, token, modelPath). The
- * SDK runtime itself takes no token — the Nexa key is for *downloading* the model, not
- * running it — so [token] is retained only to keep the reflective constructor stable.
+ * SDK runtime takes no token — the Nexa key is for *downloading* the model, not running
+ * it — so [token] is retained only to keep the reflective constructor stable.
  */
 class NexaOmniNeuralEdgeModel(
     private val context: Context,
@@ -32,29 +33,35 @@ class NexaOmniNeuralEdgeModel(
 
     override suspend fun initialize(): Result<Unit> = runCatching {
         // Init the SDK runtime: extracts the QNN/HTP native assets and registers the
-        // NPU plugin. The completion callback is optional; init blocks until the
-        // assets are staged, so we proceed straight to loading the model.
+        // NPU plugin. The completion callback is an optional default arg.
         NexaSdk.getInstance().init(context)
 
-        val wrapper = VlmWrapper(
-            VlmCreateInput(
-                model_name = "omni-neural",
-                model_path = modelPath,
-                mmproj_path = "",
-                config = ModelConfig(),
-                plugin_id = NexaSdk.PLUGIN_ID_NPU,
-                device_id = "",
-            ),
+        val input = VlmCreateInput(
+            model_name = "omni-neural",
+            model_path = modelPath,
+            mmproj_path = "",
+            config = ModelConfig(),
+            plugin_id = NexaSdk.PLUGIN_ID_NPU,
+            device_id = "",
         )
-        wrapper.create() // suspend: loads weights onto the NPU
-        vlm = wrapper
+        vlm = VlmWrapper.builder()
+            .vlmCreateInput(input)
+            .build()
+            .getOrThrow()
         Log.i(TAG, "OmniNeural-4B initialized on NPU")
     }
 
     override fun generateStream(prompt: String): Flow<String> {
         val wrapper = vlm ?: error("NexaOmniNeuralEdgeModel not initialized")
-        return wrapper.generateStream(prompt, GenerationConfig())
-            .map { it.text ?: "" }
+        return wrapper.generateStreamFlow(prompt, GenerationConfig())
+            .mapNotNull { result ->
+                when (result) {
+                    is LlmStreamResult.Token -> result.text
+                    is LlmStreamResult.Error -> throw result.throwable
+                    is LlmStreamResult.Completed -> null // end of stream
+                    else -> null
+                }
+            }
             .flowOn(Dispatchers.Default)
     }
 
