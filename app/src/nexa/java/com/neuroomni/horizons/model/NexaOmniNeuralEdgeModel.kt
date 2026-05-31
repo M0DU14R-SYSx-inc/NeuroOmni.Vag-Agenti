@@ -2,26 +2,25 @@ package com.neuroomni.horizons.model
 
 import android.content.Context
 import android.util.Log
-import ai.nexa.core.GenerationConfig
-import ai.nexa.core.ModelConfig
-import ai.nexa.core.NexaSdk
-import ai.nexa.core.VlmCreateInput
-import ai.nexa.core.VlmWrapper
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
+import com.nexa.sdk.NexaSdk
+import com.nexa.sdk.VlmWrapper
+import com.nexa.sdk.bean.GenerationConfig
+import com.nexa.sdk.bean.ModelConfig
+import com.nexa.sdk.bean.VlmCreateInput
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 
 /**
- * Real on-device [EdgeModel]: OmniNeural-4B (VLM) on the Hexagon NPU via the Nexa
- * Android SDK. Compiled only into the `-PnexaEnabled=true` build (src/nexa/java),
- * so the default/CI build never references the SDK.
+ * Real on-device [EdgeModel]: OmniNeural-4B on the Hexagon NPU via the Nexa Android
+ * SDK (`ai.nexa:core`, package `com.nexa.sdk`). Compiled only into the
+ * `-PnexaEnabled=true` build (src/nexa/java), so the default/CI build never references
+ * the SDK.
  *
- * Constructed reflectively by [EdgeModelFactory] with (context, token, modelPath).
- * The token comes from BuildConfig (sourced from local.properties); it is never
- * hardcoded or committed.
+ * Constructed reflectively by [EdgeModelFactory] with (context, token, modelPath). The
+ * SDK runtime itself takes no token — the Nexa key is for *downloading* the model, not
+ * running it — so [token] is retained only to keep the reflective constructor stable.
  */
 class NexaOmniNeuralEdgeModel(
     private val context: Context,
@@ -32,31 +31,32 @@ class NexaOmniNeuralEdgeModel(
     private var vlm: VlmWrapper? = null
 
     override suspend fun initialize(): Result<Unit> = runCatching {
+        // Init the SDK runtime: extracts the QNN/HTP native assets and registers the
+        // NPU plugin. The completion callback is optional; init blocks until the
+        // assets are staged, so we proceed straight to loading the model.
         NexaSdk.getInstance().init(context)
-        vlm = suspendCancellableCoroutine { cont ->
-            VlmWrapper.builder()
-                .create(
-                    VlmCreateInput(
-                        model_name = "omni-neural",
-                        model_path = modelPath,
-                        plugin_id = "npu",
-                        config = ModelConfig(max_tokens = MAX_TOKENS),
-                    ),
-                    onSuccess = { wrapper -> if (cont.isActive) cont.resume(wrapper) },
-                    onError = { err ->
-                        if (cont.isActive) {
-                            cont.resumeWith(Result.failure(IllegalStateException("Nexa VLM create failed: $err")))
-                        }
-                    },
-                )
-        }
+
+        val wrapper = VlmWrapper(
+            VlmCreateInput(
+                model_name = "omni-neural",
+                model_path = modelPath,
+                mmproj_path = "",
+                config = ModelConfig(),
+                plugin_id = NexaSdk.PLUGIN_ID_NPU,
+                device_id = "",
+            ),
+        )
+        wrapper.create() // suspend: loads weights onto the NPU
+        vlm = wrapper
         Log.i(TAG, "OmniNeural-4B initialized on NPU")
     }
 
-    override fun generateStream(prompt: String): Flow<String> = flow {
+    override fun generateStream(prompt: String): Flow<String> {
         val wrapper = vlm ?: error("NexaOmniNeuralEdgeModel not initialized")
-        wrapper.generateStreamFlow(prompt, GenerationConfig()).collect { token -> emit(token) }
-    }.flowOn(Dispatchers.Default)
+        return wrapper.generateStream(prompt, GenerationConfig())
+            .map { it.text ?: "" }
+            .flowOn(Dispatchers.Default)
+    }
 
     override fun release() {
         runCatching { vlm?.destroy() }
@@ -65,6 +65,5 @@ class NexaOmniNeuralEdgeModel(
 
     private companion object {
         const val TAG = "NexaOmniNeural"
-        const val MAX_TOKENS = 2048
     }
 }
