@@ -69,11 +69,55 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // If the previous run crashed, show the saved report instead of the app so
+        // the failure is diagnosable on-device (no adb/logcat needed).
+        val savedCrash = CrashLog.read(this)
         setContent {
             HorizonsTheme {
-                HorizonsApp()
+                if (savedCrash != null) {
+                    CrashReportScreen(
+                        report = savedCrash,
+                        onDismiss = { CrashLog.clear(this); recreate() },
+                    )
+                } else {
+                    HorizonsApp()
+                }
             }
         }
+    }
+}
+
+/** Full-screen view of the last saved crash, with copy-to-clipboard + dismiss. */
+@Composable
+private fun CrashReportScreen(report: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .systemBarsPadding()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Last run crashed", color = AccentRed, fontSize = 22.sp)
+        Text(
+            "Copy this and send it over — it's the actual reason the app stopped.",
+            color = HorizonsOnSurfaceMuted,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = {
+                val clip = context.getSystemService(android.content.ClipboardManager::class.java)
+                clip?.setPrimaryClip(android.content.ClipData.newPlainText("crash", report))
+                Toast.makeText(context, "Crash copied", Toast.LENGTH_SHORT).show()
+            }) { Text("Copy") }
+            Button(onClick = onDismiss) { Text("Dismiss") }
+        }
+        Text(
+            report,
+            color = HorizonsOnBackground,
+            fontSize = 12.sp,
+            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+        )
     }
 }
 
