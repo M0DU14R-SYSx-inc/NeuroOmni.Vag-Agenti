@@ -23,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -32,6 +33,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -176,6 +178,11 @@ fun HorizonsApp() {
                     .weight(1f)
                     .fillMaxWidth()
                     .background(PanelScrim)
+                // The scrim is near-black, so default content color must be light:
+                // bare Text() over it would otherwise inherit black and vanish.
+                CompositionLocalProvider(
+                    LocalContentColor provides MaterialTheme.colorScheme.onBackground,
+                ) {
                 when (selectedPanel) {
                     Panel.Chat -> ChatPanel(
                         messages = messages,
@@ -209,6 +216,7 @@ fun HorizonsApp() {
                     )
                     Panel.Terminal -> TerminalPanel(panelModifier)
                     Panel.Diagnostics -> DiagnosticsPanel(panelModifier)
+                }
                 }
             }
         }

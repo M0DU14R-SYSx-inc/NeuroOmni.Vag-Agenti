@@ -141,12 +141,23 @@ private fun ProviderToggleBar(
         Text(
             text = "Active provider: $activeProviderLabel",
             style = MaterialTheme.typography.labelLarge,
+            // Explicit light color: this bar sits on the gradient backdrop, not inside a
+            // Surface, so LocalContentColor would otherwise default to black (invisible).
+            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.weight(1f),
         )
         // Quick Edge ⇄ frontier switch; the Router panel picks which frontier provider.
-        Text("Edge", style = MaterialTheme.typography.labelMedium)
+        Text(
+            "Edge",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
         Switch(checked = frontierEnabled, onCheckedChange = onProviderToggle)
-        Text("Cloud", style = MaterialTheme.typography.labelMedium)
+        Text(
+            "Cloud",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
     }
 }
 
