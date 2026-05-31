@@ -162,7 +162,7 @@ Drives consumer web apps on Derek's behalf.
 ## 6. Vision
 
 - **Engine:** OmniNeural-4B (VLM) via Nexa SDK on Hexagon NPU
-- **Screen capture:** `MediaProjection` API captures current screen as bitmap, feeds to OmniNeural as image input
+- **Screen capture:** Preferred — trigger the **Aftiroid screenshot-tile** (intent / Quick Settings tile); the saved image is fed to OmniNeural as image input. `MediaProjection` API is the fallback (re-prompts permission each session).
 - **Camera:** Camera2 API for real-world photo capture, feeds to OmniNeural
 - **Use cases:** "What's on my screen?", "Read this receipt", "What am I looking at?", photo-based Q&A
 
@@ -199,7 +199,9 @@ Drives consumer web apps on Derek's behalf.
 | OkHttp / Ktor | HTTP client for API layer |
 | Nexa SDK (Android) | OmniNeural-4B on Hexagon NPU |
 | ONNX Runtime Mobile | Whisper Tiny, Kokoro, Silero VAD |
-| MediaProjection API | Screen capture for vision |
+| Aftiroid screenshot-tile (intent) | Screen capture for vision (preferred) |
+| MediaProjection API | Screen capture for vision (fallback) |
+| Tasker (intent bridge) | Device automation without a custom Accessibility Service |
 | Camera2 API | Real-world photo capture |
 | SpeechRecognizer (Android) | Fallback STT |
 | TextToSpeech (Android) | Fallback TTS (uses system engine = Sherpa-ONNX Kokoro if installed) |

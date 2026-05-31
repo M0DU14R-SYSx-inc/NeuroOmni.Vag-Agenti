@@ -114,19 +114,44 @@ USB P2P is Razr ↔ Pi only. The Jetson Orin Nano requires a kernel recompile to
 
 ## 4. On-Device Model Stack (Razr)
 
-All models run inside the N0.V4 Kotlin app. Nothing runs in Termux for inference.
+**Inference placement is split by hardware, not by a blanket rule.**
+
+| Model | Where it runs | Why |
+|-------|--------------|-----|
+| OmniNeural-4B (Stack C) | **In-app (Nexa SDK)** — mandatory | Only the in-app SDK can reach the **Hexagon NPU**. Termux is CPU-only Linux and cannot touch the NPU; running it there loses the entire point. |
+| Whisper Large-v3 (Stack A) | **Termux** (`whisper.cpp` + `termux-microphone-record`) | CPU-bound anyway. Termux avoids hand-writing Android NDK/JNI bindings and reuses the existing `RUN_COMMAND` bridge. Quality-over-latency makes CPU acceptable. |
+| Kokoro TTS (Stack E) | Either — in-app (Vulkan) **or** Termux (`termux-tts-speak`) | In-app gets GPU/Vulkan; Termux is simpler. Both documented below. |
+| VAD / wake word (Stack B) | In-app, **optional** | Tiny always-on; skipped while push-to-talk is the activation model. |
+
+> Rationale: NPU/GPU-accelerated models earn their in-app complexity; CPU models do
+> not, so route them through Termux to cut app-dev work. This revises the earlier
+> "nothing runs in Termux for inference" stance, which was too absolute.
+
+> **Design principle — quality over latency.** At every layer (ASR model size, TTS
+> voice, frontier model choice) prefer the higher-quality option even when it is
+> slower. Output that streams faster than a human can read or hear it is wasted
+> speed; rich, accurate, human-paced inference is the goal. Do not "optimize" a
+> heavier model down to a lighter one for speed alone without explicit sign-off.
 
 ### Stack A — Speech-to-Text
-- **Model:** Whisper Tiny EN (39M params)
-- **Runtime:** whisper.cpp Android binding or ONNX Runtime Mobile
-- **Hardware:** CPU (ARM Neon optimized)
-- **Role:** Voice input. Always-on when app is active.
+- **Model:** Whisper Large-v3 (or distil-large-v3). *Not* Tiny — quality-first per
+  the principle above; Derek dislikes Google/FUTO ASR quality and accepts the
+  slower, heavier model for materially better transcription.
+- **Runtime:** `whisper.cpp` in **Termux** (preferred — `pkg install`, no JNI),
+  driven via `RUN_COMMAND` intent; `termux-microphone-record` captures audio, the
+  app reads back the transcript. In-app whisper.cpp binding remains a fallback.
+- **Hardware:** CPU (ARM Neon) — acceptable since quality > latency, no cloud, no Google
+- **Activation:** Push-to-talk **mic button** (no always-on wake word required —
+  Derek is fine pressing a button; wake word / VAD remains optional, Stack B).
+- **Role:** Voice input, fully offline and private.
 
 ### Stack B — Wake Word / VAD
 - **Model:** Silero VAD + optional openWakeWord
 - **Runtime:** ONNX Runtime Mobile
 - **Hardware:** CPU (near-zero power)
 - **Role:** Detect speech onset, trigger Whisper. Prevent processing silence.
+- **Status:** Optional / deferred — push-to-talk mic button (Stack A) is the primary
+  activation model. Wake word is a later convenience, not required for the build.
 
 ### Stack C — Language Model (Edge)
 - **Model:** OmniNeural-4B (VLM — text + vision)
@@ -204,7 +229,7 @@ OmniNeural is NOT a universal dispatcher that intercepts every message. Its role
 
 1. **STT layer** — converts voice to text via Whisper, feeds to the active provider
 2. **TTS layer** — takes text output from the active provider, feeds to Kokoro for speech
-3. **Mechanical glue** — when the active provider says "upload file X" or "open app Y," OmniNeural translates that into Android actions (Accessibility Service taps, Intent launches, Termux RUN_COMMAND calls)
+3. **Mechanical glue** — when the active provider says "upload file X" or "open app Y," OmniNeural translates that into Android actions. **Preferred mechanism: fire an Intent to Tasker** (mature automation app already installed) rather than hand-building an Accessibility Service. Tasker performs the system action and returns a result; Termux `RUN_COMMAND` and Intent launches cover the rest. A custom Accessibility Service is a last resort only for actions Tasker can't reach.
 4. **Active dispatcher ONLY when:**
    - Edge mode is toggled on (no internet)
    - Derek explicitly asks "which tool should I use for this?"
@@ -289,7 +314,19 @@ HTTP calls to programmable endpoints. Toggle selects which. OkHttp/Ktor client i
 ### Layer 2 — Shell-Automation Layer
 Runs CLI commands in Termux via Android's `RUN_COMMAND` intent. Captures stdout. Returns results to the app UI.
 
-Used for: Claude Code CLI, Gemini CLI, git, gh, any Termux-installed tool.
+Used for: Claude Code CLI, Gemini CLI, git, gh, any Termux-installed tool — **and
+Termux-hosted inference (Whisper Large ASR via `whisper.cpp`, see Stack A).**
+
+### Layer 2.5 — Device-Automation Layer (Tasker + intents)
+Off-loads Android system automation to installed apps via Intents instead of a
+hand-built Accessibility Service:
+- **Tasker bridge:** App → Intent → Tasker task → system action (taps, app launches,
+  toggles, file ops) → result returned. Replaces most of the Accessibility work.
+- **Screen capture for vision:** Trigger the **Aftiroid screenshot-tile** (Quick
+  Settings tile / intent) to grab the current screen; the saved image is fed to
+  OmniNeural as image input. Avoids `MediaProjection`'s per-session permission nag.
+- Both are low-effort, reliable shortcuts around the two most fragile pieces of the
+  original spec (Accessibility taps and MediaProjection capture).
 
 ### Layer 3 — Browser-Automation Layer (Phase 2)
 Drives consumer web apps on Derek's behalf:
