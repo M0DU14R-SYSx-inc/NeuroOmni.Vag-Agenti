@@ -23,5 +23,7 @@ val TealMid = Color(0xFF0D1B26)
 val TealAbyss = Color(0xFF060A0D)
 
 // Dark slate scrim that panel content sits on, so text stays readable over the
-// bright marble streak in the backdrop. Matches the near-black at the screen bottom.
-val PanelScrim = Color(0xE60A0F14)
+// bright marble streak in the backdrop. Solid and a touch darker than the
+// background (#0D1117) so the panel reads as a distinct surface against the
+// teal backdrop without disappearing into near-black.
+val PanelScrim = Color(0xFF090C11)
