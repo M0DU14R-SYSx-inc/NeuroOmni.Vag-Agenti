@@ -44,6 +44,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.neuroomni.horizons.BuildConfig
+import com.neuroomni.horizons.model.EdgeModelDownloader
 import com.neuroomni.horizons.model.EdgeModelFactory
 import com.neuroomni.horizons.model.EdgeModelInstaller
 import com.neuroomni.horizons.provider.CredentialStore
@@ -289,8 +290,35 @@ private fun EdgeModelCard(credentialStore: CredentialStore) {
             }
         }
 
-        Button(onClick = { picker.launch(null) }, enabled = !copying) {
-            Text(if (installedDir != null) "Replace model folder" else "Import model folder")
+        // One-tap download of the correct mobile model straight into the app's
+        // folder — no Files app, no picker, no wrong-layout/subfolder traps.
+        Button(
+            onClick = {
+                copying = true
+                progress = null
+                status = "Downloading OmniNeural-4B-mobile…"
+                scope.launch {
+                    val result = EdgeModelDownloader.download(context) { p ->
+                        progress = p.fraction
+                        status = "Downloading ${p.currentFile} (${p.fileIndex}/${p.fileCount})…"
+                    }
+                    copying = false
+                    result
+                        .onSuccess {
+                            installedDir = EdgeModelFactory.installedModelDir(context)
+                            status = "Downloaded the mobile model. Restart the app to load it on the NPU."
+                        }
+                        .onFailure { status = "Download failed: ${it.message}" }
+                }
+            },
+            enabled = !copying,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (installedDir != null) "Re-download mobile model" else "Download model (recommended)")
+        }
+
+        TextButton(onClick = { picker.launch(null) }, enabled = !copying) {
+            Text(if (installedDir != null) "Or import a folder manually" else "Or import a folder manually")
         }
 
         status?.let {
