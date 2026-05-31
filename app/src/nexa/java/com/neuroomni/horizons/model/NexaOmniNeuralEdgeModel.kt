@@ -20,9 +20,10 @@ import kotlinx.coroutines.flow.mapNotNull
  * the SDK.
  *
  * Constructed reflectively by [EdgeModelFactory] with (context, token, modelPath), where
- * modelPath is the `nexaml/` folder (language_model + vision/audio encoders + projector +
- * embedding). The SDK runtime takes no token — the Nexa key is for *downloading* the
- * model, not running it — so [token] is retained only to keep the reflective ctor stable.
+ * modelPath is the model folder (8 weights-*.nexa shards + nexa.manifest, covering the
+ * LLM + vision + audio encoders). The SDK runtime takes no token — the Nexa key is for
+ * *downloading* the model, not running it — so [token] is kept only to keep the
+ * reflective ctor stable.
  */
 class NexaOmniNeuralEdgeModel(
     private val context: Context,

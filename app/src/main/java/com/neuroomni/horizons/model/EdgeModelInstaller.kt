@@ -13,8 +13,9 @@ import kotlin.coroutines.coroutineContext
 /**
  * Imports a model the user picked from on-device storage (Downloads, etc.) into the
  * app's external models dir, where [EdgeModelFactory] looks for it. This is the
- * phone-only alternative to `adb push`: download the ~1.57 GB `weights-8-8.nexa` on
- * the Razr, tap to import, no computer required.
+ * phone-only alternative to `adb push`: download the OmniNeural model folder (the 8
+ * weights-*.nexa shards + nexa.manifest, ~4.7 GB) on the Razr, tap to import, no
+ * computer required.
  *
  * The Nexa runtime needs a real filesystem path (not a content Uri), so the file is
  * copied once. Progress is reported so a multi-GB copy isn't a silent freeze.
@@ -78,13 +79,13 @@ object EdgeModelInstaller {
     }
 
     /**
-     * Import a whole picked folder (the OmniNeural `nexaml/` directory) into the models
-     * dir, preserving its tree. OmniNeural-4B is multi-file (language_model /
-     * vision_encoder / audio_encoder / projector / embedding + tokenizer), and the SDK
-     * is given the folder, so all parts must land together. Copied once because the
-     * runtime needs real filesystem paths, not content Uris.
+     * Import a whole picked folder (the OmniNeural model directory) into the models
+     * dir, preserving its tree. OmniNeural-4B is multi-file — 8 weight shards
+     * (weights-1-8.nexa … weights-8-8.nexa) plus attachments/files and nexa.manifest —
+     * and the SDK is given the folder, so all parts must land together. Copied once
+     * because the runtime needs real filesystem paths, not content Uris.
      *
-     * Returns the installed folder (named after the picked tree, e.g. `nexaml`).
+     * Returns the installed folder (named after the picked tree).
      */
     suspend fun installTree(
         context: Context,
@@ -101,7 +102,7 @@ object EdgeModelInstaller {
 
             val modelsDir = (context.getExternalFilesDir(EdgeModelFactory.OMNI_NEURAL_DIR)
                 ?: File(context.filesDir, EdgeModelFactory.OMNI_NEURAL_DIR)).apply { mkdirs() }
-            val destRoot = File(modelsDir, sanitize(root.name ?: "nexaml"))
+            val destRoot = File(modelsDir, sanitize(root.name ?: "omni-neural"))
             // Fresh copy: drop any previous import so removed files don't linger.
             if (destRoot.exists()) destRoot.deleteRecursively()
             destRoot.mkdirs()

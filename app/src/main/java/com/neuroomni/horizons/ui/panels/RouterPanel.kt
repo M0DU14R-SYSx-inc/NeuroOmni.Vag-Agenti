@@ -182,7 +182,7 @@ private fun LabeledValue(label: String, value: String) {
 }
 
 /**
- * Edge model status + on-device importer (no adb needed): pick the `weights-8-8.nexa`
+ * Edge model status + on-device importer (no adb needed): pick the OmniNeural model folder
  * file from Downloads and the app copies it into the models dir [EdgeModelFactory] reads.
  * Surfaces honestly whether this build can actually run it on the NPU.
  */
@@ -202,7 +202,7 @@ private fun EdgeModelCard(credentialStore: CredentialStore) {
     var progress by remember { mutableStateOf<Float?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
 
-    // OmniNeural-4B is a multi-file set, so we import the whole `nexaml/` folder.
+    // OmniNeural-4B is a multi-file set (8 shards + manifest), so import the whole folder.
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         copying = true
@@ -278,7 +278,7 @@ private fun EdgeModelCard(credentialStore: CredentialStore) {
 
         installedDir?.let {
             LabeledValue("Model", "${it.name}/ (${formatSize(dirSize(it))})")
-        } ?: LabeledValue("Model", "no nexaml/ folder installed yet")
+        } ?: LabeledValue("Model", "no model folder installed yet")
 
         if (copying) {
             val frac = progress
@@ -290,7 +290,7 @@ private fun EdgeModelCard(credentialStore: CredentialStore) {
         }
 
         Button(onClick = { picker.launch(null) }, enabled = !copying) {
-            Text(if (installedDir != null) "Replace model folder" else "Import nexaml folder")
+            Text(if (installedDir != null) "Replace model folder" else "Import model folder")
         }
 
         status?.let {

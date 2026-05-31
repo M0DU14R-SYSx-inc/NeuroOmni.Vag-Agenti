@@ -11,7 +11,7 @@ import java.io.File
  * Returns [NexaOmniNeuralEdgeModel] only when ALL of these hold:
  *   - the app was built with `-PnexaEnabled=true` (BuildConfig.NEXA_ENABLED),
  *   - a Nexa key is present (passed in / BuildConfig),
- *   - the OmniNeural `nexaml/` model folder exists under the app's files dir.
+ *   - the OmniNeural model folder (containing nexa.manifest) exists under files dir.
  * Otherwise it falls back to [StubEdgeModel] so CI and tokenless devices stay green.
  *
  * The Nexa class is instantiated reflectively so the default (stub-only) build has
@@ -27,12 +27,13 @@ object EdgeModelFactory {
     const val MODEL_EXTENSION = "nexa"
 
     /**
-     * OmniNeural-4B ships as a multi-file set under a `nexaml/` folder
-     * (language_model / vision_encoder / audio_encoder / projector / embedding, all
-     * `.nexa`, plus tokenizer + processor config). The runtime is given the *folder*,
-     * not a single file — the LLM lives in this one and the SDK resolves its siblings.
+     * OmniNeural-4B ships as a multi-file set: 8 weight shards
+     * (`weights-1-8.nexa` … `weights-8-8.nexa`) plus `attachments-*.nexa`,
+     * `files-1-1.nexa`, and a tiny `nexa.manifest` descriptor that ties them together
+     * (verified from the HF repo NexaAI/OmniNeural-4B-mobile). The runtime is given the
+     * *folder* containing the manifest; it resolves the shards itself.
      */
-    const val PRIMARY_MODEL_FILE = "language_model.nexa"
+    const val PRIMARY_MODEL_FILE = "nexa.manifest"
 
     /**
      * Where the importer drops the model and where this factory looks first:
@@ -46,13 +47,13 @@ object EdgeModelFactory {
 
     /**
      * The installed model directory — the folder containing [PRIMARY_MODEL_FILE]
-     * (i.e. the `nexaml/` dir). Searched up to two levels deep under each models dir so
-     * either `models/nexaml/…` or `models/…` layouts resolve. Null if not present.
+     * (the `nexa.manifest`). Checks each models dir and its immediate subdirs, so both
+     * `models/<modelfolder>/…` and `models/…` layouts resolve. Null if not present.
      */
     fun installedModelDir(context: Context): File? {
         for (root in modelsDirs(context)) {
             if (!root.isDirectory) continue
-            // The folder holding language_model.nexa: root itself, or an immediate subdir.
+            // The folder holding nexa.manifest: root itself, or an immediate subdir.
             val candidates = sequenceOf(root) +
                 (root.listFiles()?.asSequence()?.filter { it.isDirectory } ?: emptySequence())
             candidates.firstOrNull { File(it, PRIMARY_MODEL_FILE).isFile }?.let { return it }
@@ -74,7 +75,9 @@ object EdgeModelFactory {
             return StubEdgeModel()
         }
         return try {
-            // Pass the nexaml/ folder; the SDK loads language_model.nexa + siblings.
+            // Pass the folder containing nexa.manifest; the SDK resolves the shards.
+            // (If the runtime turns out to want the manifest file path itself, that's a
+            //  one-line change: File(installedModelDir(context)!!, PRIMARY_MODEL_FILE).)
             val modelPath = installedModelDir(context)!!.absolutePath
             val clazz = Class.forName("com.neuroomni.horizons.model.NexaOmniNeuralEdgeModel")
             clazz.getConstructor(Context::class.java, String::class.java, String::class.java)
@@ -90,7 +93,7 @@ object EdgeModelFactory {
         if (!BuildConfig.NEXA_ENABLED) return "built without nexaEnabled"
         if (nexaToken.isBlank()) return "Nexa key not set"
         if (installedModelDir(context) == null) {
-            return "no $PRIMARY_MODEL_FILE (nexaml/ folder) under ${modelsDirs(context).joinToString { it.path }}"
+            return "no $PRIMARY_MODEL_FILE (model folder) under ${modelsDirs(context).joinToString { it.path }}"
         }
         return null
     }
