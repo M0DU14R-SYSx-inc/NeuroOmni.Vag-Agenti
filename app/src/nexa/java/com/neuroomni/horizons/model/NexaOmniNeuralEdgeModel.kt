@@ -58,7 +58,24 @@ class NexaOmniNeuralEdgeModel(
                 when (result) {
                     is LlmStreamResult.Token -> result.text
                     is LlmStreamResult.Error -> throw result.throwable
-                    is LlmStreamResult.Completed -> null // end of stream
+                    is LlmStreamResult.Completed -> {
+                        // Backend proof: on the Hexagon DSP decode speed is many ×
+                        // a CPU/GPU fallback, so this line tells us definitively which
+                        // path engaged on the Razr (Architecture §6 / Diagnostics §3).
+                        val p = result.profile
+                        Log.i(
+                            TAG,
+                            "decode=%.1f tok/s prefill=%.1f tok/s ttft=%.0fms gen=%d stop=%s"
+                                .format(
+                                    p.decodingSpeed,
+                                    p.prefillSpeed,
+                                    p.ttftMs,
+                                    p.generatedTokens,
+                                    p.stopReason,
+                                ),
+                        )
+                        null // end of stream
+                    }
                     else -> null
                 }
             }
