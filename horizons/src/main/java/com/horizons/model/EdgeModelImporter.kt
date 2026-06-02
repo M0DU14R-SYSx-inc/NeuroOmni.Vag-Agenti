@@ -55,12 +55,23 @@ object EdgeModelImporter {
     ): kotlin.Result<Result> = withContext(Dispatchers.IO) {
         runCatching {
             val root = DocumentFile.fromTreeUri(context, treeUri) ?: error("Could not open picked folder")
-            val all = root.listFiles().filter { it.isFile }
+            val all = mutableListOf<DocumentFile>()
+            walk(root, all, depth = 0, maxDepth = 4)
             val matches = all.mapNotNull { doc ->
                 val canon = canonicalName(doc.name) ?: return@mapNotNull null
                 canon to doc
             }
             copyAll(context, matches, onProgress, candidatesSeen = all.size)
+        }
+    }
+
+    private fun walk(dir: DocumentFile, into: MutableList<DocumentFile>, depth: Int, maxDepth: Int) {
+        if (depth > maxDepth) return
+        for (child in dir.listFiles()) {
+            when {
+                child.isFile -> into.add(child)
+                child.isDirectory -> walk(child, into, depth + 1, maxDepth)
+            }
         }
     }
 
