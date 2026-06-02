@@ -1,24 +1,76 @@
 package com.horizons.model
 
+import android.content.Context
+import android.util.Log
+import com.nexa.sdk.NexaSdk
+import com.nexa.sdk.VlmWrapper
+import com.nexa.sdk.bean.GenerationConfig
+import com.nexa.sdk.bean.LlmStreamResult
+import com.nexa.sdk.bean.ModelConfig
+import com.nexa.sdk.bean.VlmCreateInput
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapNotNull
 
-class NexaVlmEngine(private val modelFolder: String) : EdgeModel {
+/**
+ * OmniNeural-4B-mobile on the Hexagon NPU via the Nexa Android SDK.
+ * modelFolder = flat folder of weights-*.nexa shards + attachments-*.nexa + files-1-1.nexa + nexa.manifest.
+ * Per the MODEL-FOLDER HYGIENE rule: no subdirectories (otherwise SDK create() returns -863151000).
+ */
+class NexaVlmEngine(
+    private val context: Context,
+    private val modelFolder: String
+) : EdgeModel {
     override val backendTag = "nexa-npu"
+    private var vlm: VlmWrapper? = null
 
     override suspend fun load() {
-        TODO("Phase 1: NexaSdk.getInstance().init(ctx); VlmWrapper(VlmCreateInput(plugin_id=NPU, model_name=omni-neural, modelFolder))")
+        NexaSdk.getInstance().init(context)
+        val input = VlmCreateInput(
+            model_name = "omni-neural",
+            model_path = modelFolder,
+            mmproj_path = "",
+            config = ModelConfig(),
+            plugin_id = NexaSdk.PLUGIN_ID_NPU,
+            device_id = ""
+        )
+        vlm = VlmWrapper.builder().vlmCreateInput(input).build().getOrThrow()
+        Log.i(TAG, "OmniNeural-4B-mobile loaded on Hexagon NPU; folder=$modelFolder")
     }
 
     override suspend fun unload() {
-        TODO("Phase 1: release the wrapper.")
+        runCatching { vlm?.destroy() }
+        vlm = null
     }
 
-    override fun generateStream(prompt: String, imagePath: String?): Flow<String> = flow {
-        TODO("Phase 1: call generateStream; emit token deltas. Phase 3: image input for screen-ask.")
+    override fun generateStream(prompt: String, imagePath: String?): Flow<String> {
+        val wrapper = vlm ?: return flow { throw IllegalStateException("NexaVlmEngine.load() not called") }
+        // Phase 3: pass imagePath into the VLM image-input call for Screen-ask.
+        return wrapper.generateStreamFlow(prompt, GenerationConfig())
+            .mapNotNull { result ->
+                when (result) {
+                    is LlmStreamResult.Token -> result.text
+                    is LlmStreamResult.Error -> throw result.throwable
+                    is LlmStreamResult.Completed -> {
+                        val p = result.profile
+                        // Decode speed is the Hexagon proof — CPU/GPU fallback is many x slower.
+                        Log.i(TAG, "decode=%.1f tok/s prefill=%.1f tok/s ttft=%.0fms gen=%d stop=%s".format(
+                            p.decodingSpeed, p.prefillSpeed, p.ttftMs, p.generatedTokens, p.stopReason
+                        ))
+                        null
+                    }
+                    else -> null
+                }
+            }
+            .flowOn(Dispatchers.Default)
     }
 
     override suspend fun buildMetaPrompt(rawText: String, target: MetaPromptTarget): String {
-        TODO("Phase 3: system prompt that converts muddled STT to clean prompt (ChatBox) or bash command (BashCommand).")
+        // Phase 3: real meta-prompt system prompts (ChatBox vs BashCommand).
+        return rawText
     }
+
+    private companion object { const val TAG = "NexaVlmEngine" }
 }
