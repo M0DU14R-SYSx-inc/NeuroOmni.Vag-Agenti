@@ -22,9 +22,9 @@ fun HorizonsBackdrop() {
             .background(
                 Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFF1F4A55),
-                        Color(0xFF243038),
-                        Color(0xFF1A242B)
+                        Color(0xFF2A4E58),
+                        Color(0xFF2D3A43),
+                        Color(0xFF222C34)
                     ),
                     center = Offset(380f, 480f),
                     radius = 1400f
