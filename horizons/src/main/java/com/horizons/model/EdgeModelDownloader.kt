@@ -30,7 +30,6 @@ object EdgeModelDownloader {
     /** Verified-from-HF flat file list. UPDATE HERE if Nexa publishes a different layout. */
     private val FILES = listOf(
         "nexa.manifest",
-        "config.json",
         "files-1-1.nexa",
         "attachments-1-3.nexa",
         "attachments-2-3.nexa",

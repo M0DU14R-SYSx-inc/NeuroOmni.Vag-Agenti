@@ -17,8 +17,14 @@ import kotlin.coroutines.coroutineContext
  */
 object EdgeModelImporter {
 
+    /**
+     * 13 required files. config.json is intentionally NOT in this set —
+     * Nexa SDK doesn't use it (v2 kickoff: "flat folder with ONLY weights-*,
+     * attachments-*, files-1-1, nexa.manifest") and HF ships it as a 0-byte
+     * placeholder anyway.
+     */
     val WANTED: Set<String> = setOf(
-        "nexa.manifest", "config.json", "files-1-1.nexa",
+        "nexa.manifest", "files-1-1.nexa",
         "attachments-1-3.nexa", "attachments-2-3.nexa", "attachments-3-3.nexa",
         "weights-1-8.nexa", "weights-2-8.nexa", "weights-3-8.nexa", "weights-4-8.nexa",
         "weights-5-8.nexa", "weights-6-8.nexa", "weights-7-8.nexa", "weights-8-8.nexa"

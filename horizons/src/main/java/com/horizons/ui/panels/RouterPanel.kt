@@ -62,13 +62,15 @@ fun RouterPanel(modifier: Modifier = Modifier) {
                 progressFrac = p.fraction
             }.onSuccess { r ->
                 refresh()
+                val staged = checklist.count { it.second }
+                val total = checklist.size
                 line = when {
                     r.candidates == 0 -> "Picked folder appears empty."
-                    r.copied.isEmpty() -> "Found ${r.candidates} files; none matched the 14 required names. Try 'Import files' instead."
-                    r.missing.isEmpty() -> "All 14 copied. Loading engine..."
-                    else -> "Copied ${r.copied.size}/14. Missing: ${r.missing.size}"
+                    staged == 0 -> "Found ${r.candidates} files; none matched the $total required names. Try 'Files' instead."
+                    staged == total -> "All $total staged. Loading engine..."
+                    else -> "Staged $staged/$total. Missing: ${total - staged}"
                 }
-                if (r.missing.isEmpty()) { app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}" }
+                if (staged == total) { app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}" }
             }.onFailure { line = "Import failed: ${it.message}" }
             busy = false
         }
@@ -83,12 +85,14 @@ fun RouterPanel(modifier: Modifier = Modifier) {
                 progressFrac = p.fraction
             }.onSuccess { r ->
                 refresh()
+                val staged = checklist.count { it.second }
+                val total = checklist.size
                 line = when {
-                    r.copied.isEmpty() -> "None of the ${r.candidates} picked files matched the 14 required names."
-                    r.missing.isEmpty() -> "All 14 copied. Loading engine..."
-                    else -> "Copied ${r.copied.size}. Missing: ${r.missing.size}"
+                    staged == 0 -> "None of the ${r.candidates} picked files matched the $total required names."
+                    staged == total -> "All $total staged. Loading engine..."
+                    else -> "Staged $staged/$total. Missing: ${total - staged}"
                 }
-                if (r.missing.isEmpty()) { app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}" }
+                if (staged == total) { app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}" }
             }.onFailure { line = "Import failed: ${it.message}" }
             busy = false
         }
@@ -133,7 +137,7 @@ fun RouterPanel(modifier: Modifier = Modifier) {
             OutlinedButton(enabled = !busy, onClick = { pickFiles.launch(arrayOf("*/*")) }) { Text("Files") }
         }
 
-        Text("Checklist (${checklist.count { it.second }}/14):", style = MaterialTheme.typography.titleSmall)
+        Text("Checklist (${checklist.count { it.second }}/${checklist.size}):", style = MaterialTheme.typography.titleSmall)
         checklist.forEach { (name, present) ->
             Text((if (present) "  v  " else "  -  ") + name)
         }

@@ -28,9 +28,13 @@ class HorizonsApplication : Application() {
         }.onFailure { Log.e(TAG, "watchdog init failed", it) }
         if (!::watchdog.isInitialized) watchdog = WatchdogWsClient(this)
 
-        edge = runCatching { EdgeModelFactory.create(this) }
-            .onFailure { Log.e(TAG, "edge factory failed", it) }
-            .getOrElse { StubEdgeModel() }
+        // Start on Stub so chat works immediately. If a model is staged, swap
+        // to the real engine in the background AFTER load() completes — so
+        // Chat never sees a constructed-but-unloaded NexaVlmEngine.
+        edge = StubEdgeModel()
+        if (EdgeModelFactory.installedModelDir(this) != null) {
+            scope.launch { reloadEngine() }
+        }
     }
 
     fun engine(): EdgeModel = edge
