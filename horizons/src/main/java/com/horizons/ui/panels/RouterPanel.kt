@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -105,8 +106,11 @@ fun RouterPanel(modifier: Modifier = Modifier) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        val engineStatus by app.engineStatus.collectAsState()
+        val engineError by app.engineError.collectAsState()
         Text("Provider library", style = MaterialTheme.typography.titleMedium)
-        Text("Engine: ${app.engine().backendTag}")
+        Text("Engine: ${app.engine().backendTag}  ($engineStatus)")
+        engineError?.let { Text("ENGINE ERROR: $it") }
         Text(status)
 
         if (busy || line.isNotBlank()) {
@@ -135,6 +139,7 @@ fun RouterPanel(modifier: Modifier = Modifier) {
 
             OutlinedButton(enabled = !busy, onClick = { pickFolder.launch(EdgeModelImporter.DOWNLOADS_TREE_URI) }) { Text("Folder") }
             OutlinedButton(enabled = !busy, onClick = { pickFiles.launch(arrayOf("*/*")) }) { Text("Files") }
+            OutlinedButton(enabled = !busy, onClick = { app.reloadEngineAsync() }) { Text("Reload") }
         }
 
         Text("Checklist (${checklist.count { it.second }}/${checklist.size}):", style = MaterialTheme.typography.titleSmall)
@@ -151,6 +156,7 @@ private fun currentChecklist(ctx: android.content.Context): List<Pair<String, Bo
         EdgeModelDownloader.MODEL_DIR_NAME
     )
     return EdgeModelImporter.WANTED.sorted().map { name ->
-        name to java.io.File(dir, name).let { it.isFile && it.length() > 0 }
+        // Accept 0-byte files as present (HF ships config.json that way).
+        name to java.io.File(dir, name).isFile
     }
 }
