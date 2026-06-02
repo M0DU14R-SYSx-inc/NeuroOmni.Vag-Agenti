@@ -54,12 +54,12 @@ private fun Dashboard() {
                 CenterAlignedTopAppBar(
                     title = { Text("Horizons — ${panel.label}") },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color(0xCC0A0F12)
+                        containerColor = Color(0xE62A353D)
                     )
                 )
             },
             bottomBar = {
-                NavigationBar(containerColor = Color(0xCC0A0F12)) {
+                NavigationBar(containerColor = Color(0xE62A353D)) {
                     NavigationBarItem(
                         selected = panel == Panel.Chat,
                         onClick = { panel = Panel.Chat },

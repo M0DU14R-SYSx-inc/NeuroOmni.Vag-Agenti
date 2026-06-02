@@ -7,10 +7,13 @@ import androidx.compose.runtime.Composable
 private val Scheme = darkColorScheme(
     primary = HorizonsPrimary,
     onPrimary = HorizonsOnPrimary,
+    secondary = HorizonsHighlight,
     background = HorizonsBackground,
+    onBackground = HorizonsOnSurface,
     surface = HorizonsSurface,
     onSurface = HorizonsOnSurface,
-    secondary = HorizonsHighlight
+    surfaceVariant = HorizonsSurfaceHigh,
+    onSurfaceVariant = HorizonsOnSurface
 )
 
 @Composable

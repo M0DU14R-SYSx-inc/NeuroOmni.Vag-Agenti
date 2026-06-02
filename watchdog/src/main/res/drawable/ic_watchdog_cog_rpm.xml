@@ -1,60 +1,85 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Watchdog launcher: Tasker-style teal cogwheel with an RPM gauge inside (instead of lightning).
-     Half-circle dial + needle + tick marks, all teal on the near-black backplate. -->
+<!-- Watchdog launcher: Tasker-style bold teal cogwheel (8 visible teeth)
+     with an RPM gauge in the center (half-circle dial + ticks + needle)
+     instead of Tasker's lightning bolt. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Outer cog ring (8 teeth) -->
+    <!-- 8 cog teeth as trapezoids around radius ~46.
+         Each tooth is wide and clearly visible. -->
     <path
         android:fillColor="#2DD4D9"
-        android:pathData="M54,18 l4,-8 l-4,-2 l-4,2 z" />
+        android:pathData="M48,12 H60 L62,28 H46 Z" />
     <path
         android:fillColor="#2DD4D9"
-        android:pathData="M54,98 l4,8 l-4,2 l-4,-2 z" />
+        android:pathData="M48,96 H60 L62,80 H46 Z" />
     <path
         android:fillColor="#2DD4D9"
-        android:pathData="M18,54 l-8,4 l-2,-4 l2,-4 z" />
+        android:pathData="M12,48 V60 L28,62 V46 Z" />
     <path
         android:fillColor="#2DD4D9"
-        android:pathData="M98,54 l8,4 l2,-4 l-2,-4 z" />
+        android:pathData="M96,48 V60 L80,62 V46 Z" />
     <path
         android:fillColor="#2DD4D9"
-        android:pathData="M29,29 l-7,-3 l-1,-5 l5,1 z" />
+        android:pathData="M22,22 L31,30 L20,40 L12,32 Z" />
     <path
         android:fillColor="#2DD4D9"
-        android:pathData="M79,79 l7,3 l1,5 l-5,-1 z" />
+        android:pathData="M86,22 L77,30 L88,40 L96,32 Z" />
     <path
         android:fillColor="#2DD4D9"
-        android:pathData="M79,29 l7,-3 l1,-5 l-5,1 z" />
+        android:pathData="M22,86 L31,78 L20,68 L12,76 Z" />
     <path
         android:fillColor="#2DD4D9"
-        android:pathData="M29,79 l-7,3 l-1,5 l5,-1 z" />
+        android:pathData="M86,86 L77,78 L88,68 L96,76 Z" />
 
-    <!-- Cog body -->
+    <!-- Solid teal cog body -->
     <path
         android:fillColor="#2DD4D9"
-        android:pathData="M54,22 a32,32 0 1 1 0,64 a32,32 0 1 1 0,-64 z M54,30 a24,24 0 1 0 0,48 a24,24 0 1 0 0,-48 z" />
+        android:pathData="M54,18 a36,36 0 1 1 0,72 a36,36 0 1 1 0,-72 z" />
 
-    <!-- RPM gauge inset (half-circle dial face) -->
+    <!-- Dark inner well for the RPM gauge -->
     <path
-        android:fillColor="#050709"
-        android:pathData="M54,38 a20,20 0 0 1 20,20 H34 a20,20 0 0 1 20,-20 z" />
+        android:fillColor="#0F1A1F"
+        android:pathData="M54,26 a28,28 0 1 1 0,56 a28,28 0 1 1 0,-56 z" />
 
-    <!-- Tick marks (5) -->
-    <path
-        android:fillColor="#2DD4D9"
-        android:pathData="M36,58 h3 v-1 h-3 z M40,50 l2,2 l1,-1 l-2,-2 z M54,45 v3 h1 v-3 z M67,52 l-2,2 l1,1 l2,-2 z M69,58 h3 v-1 h-3 z" />
-
-    <!-- Needle -->
+    <!-- RPM dial: half-circle bracket framing the upper hemisphere -->
     <path
         android:fillColor="#2DD4D9"
-        android:pathData="M54,58 L66,52 L66,54 L54,60 z" />
+        android:pathData="M30,56 a24,24 0 0 1 48,0 h-4 a20,20 0 0 0 -40,0 z" />
 
-    <!-- Hub -->
+    <!-- 5 tick marks along the dial -->
     <path
         android:fillColor="#2DD4D9"
-        android:pathData="M54,58 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 z" />
+        android:pathData="M34,52 l5,2 l-1,3 l-5,-2 z" />
+    <path
+        android:fillColor="#2DD4D9"
+        android:pathData="M42,42 l4,4 l-2,2 l-4,-4 z" />
+    <path
+        android:fillColor="#2DD4D9"
+        android:pathData="M53,38 h3 v6 h-3 z" />
+    <path
+        android:fillColor="#2DD4D9"
+        android:pathData="M66,42 l-4,4 l2,2 l4,-4 z" />
+    <path
+        android:fillColor="#2DD4D9"
+        android:pathData="M74,52 l-5,2 l1,3 l5,-2 z" />
+
+    <!-- Needle pointing high-right (showing strong RPM) -->
+    <path
+        android:fillColor="#F5C518"
+        android:pathData="M54,56 L70,40 L72,42 L56,58 Z" />
+
+    <!-- Center hub -->
+    <path
+        android:fillColor="#2DD4D9"
+        android:pathData="M54,56 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0 z" />
+
+    <!-- Lower label: "RPM" hinted as a thin teal bar so it reads as a gauge,
+         not just a clock -->
+    <path
+        android:fillColor="#2DD4D9"
+        android:pathData="M44,68 h20 v3 h-20 z" />
 </vector>

@@ -12,9 +12,11 @@ val ActionYellow = Color(0xFFF5C518)
 
 val HorizonsPrimary = TealAccent
 val HorizonsOnPrimary = Color(0xFF001517)
-val HorizonsBackground = Color(0xFF0E1518)  // lifted off pure black so panels read
-val HorizonsSurface = Color(0xFF18242A)
-val HorizonsOnSurface = Color(0xFFE6F6F8)
+// Dark slate gray per operator reference (chat surface tone, NOT near-black).
+val HorizonsBackground = Color(0xFF1A242B)
+val HorizonsSurface = Color(0xFF2A353D)      // elevated cards / nav bar / top bar
+val HorizonsSurfaceHigh = Color(0xFF34414A)  // for buttons / chips / dialogs
+val HorizonsOnSurface = Color(0xFFEAF4F7)
 val HorizonsHighlight = TealAccentBright
 
 // Tile state colors (idle = backplate, active = teal; mic uses green on record, read-back uses teal on speak).
