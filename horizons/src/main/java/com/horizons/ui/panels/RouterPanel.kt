@@ -8,10 +8,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,28 +53,28 @@ fun RouterPanel(modifier: Modifier = Modifier) {
         checklist = currentChecklist(ctx)
     }
 
-    val pickFolder = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        busy = true; line = "Scanning folder..."; progressFrac = null
+        busy = true; line = "Scanning picked folder..."; progressFrac = null
         scope.launch {
             EdgeModelImporter.importFromTree(ctx, uri) { p ->
                 line = "Copying [${p.fileIndex}/${p.fileCount}] ${p.currentFile}"
                 progressFrac = p.fraction
             }.onSuccess { r ->
-                line = "Copied ${r.copied.size}/14. " +
-                    if (r.missing.isEmpty()) "Loading engine..." else "Still missing: ${r.missing.size}"
                 refresh()
+                line = when {
+                    r.candidates == 0 -> "Picked folder appears empty."
+                    r.copied.isEmpty() -> "Found ${r.candidates} files; none matched the 14 required names. Try 'Import files' instead."
+                    r.missing.isEmpty() -> "All 14 copied. Loading engine..."
+                    else -> "Copied ${r.copied.size}/14. Missing: ${r.missing.size}"
+                }
                 if (r.missing.isEmpty()) { app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}" }
             }.onFailure { line = "Import failed: ${it.message}" }
             busy = false
         }
     }
 
-    val pickFiles = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris ->
+    val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
         busy = true; line = "Importing ${uris.size} file(s)..."; progressFrac = null
         scope.launch {
@@ -81,17 +82,26 @@ fun RouterPanel(modifier: Modifier = Modifier) {
                 line = "Copying [${p.fileIndex}/${p.fileCount}] ${p.currentFile}"
                 progressFrac = p.fraction
             }.onSuccess { r ->
-                line = "Copied ${r.copied.size} file(s). " +
-                    if (r.missing.isEmpty()) "Loading engine..." else "Still missing: ${r.missing.size}"
                 refresh()
+                line = when {
+                    r.copied.isEmpty() -> "None of the ${r.candidates} picked files matched the 14 required names."
+                    r.missing.isEmpty() -> "All 14 copied. Loading engine..."
+                    else -> "Copied ${r.copied.size}. Missing: ${r.missing.size}"
+                }
                 if (r.missing.isEmpty()) { app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}" }
             }.onFailure { line = "Import failed: ${it.message}" }
             busy = false
         }
     }
 
-    Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Router — provider library")
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text("Provider library", style = MaterialTheme.typography.titleMedium)
         Text("Engine: ${app.engine().backendTag}")
         Text(status)
 
@@ -105,43 +115,29 @@ fun RouterPanel(modifier: Modifier = Modifier) {
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                enabled = !busy,
-                onClick = {
-                    busy = true; line = "Starting HF download..."; progressFrac = null
-                    scope.launch {
-                        EdgeModelDownloader.download(ctx) { p ->
-                            line = "[${p.fileIndex}/${p.fileCount}] ${p.currentFile}"
-                            progressFrac = p.fraction
-                        }.onSuccess {
-                            refresh(); line = "Download complete. Loading engine..."
-                            app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}"
-                        }.onFailure { line = "Download failed: ${it.message}" }
-                        busy = false
-                    }
+            Button(enabled = !busy, onClick = {
+                busy = true; line = "Starting HF download..."; progressFrac = null
+                scope.launch {
+                    EdgeModelDownloader.download(ctx) { p ->
+                        line = "[${p.fileIndex}/${p.fileCount}] ${p.currentFile}"
+                        progressFrac = p.fraction
+                    }.onSuccess {
+                        refresh(); line = "Download complete. Loading engine..."
+                        app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}"
+                    }.onFailure { line = "Download failed: ${it.message}" }
+                    busy = false
                 }
-            ) { Text("Download from HF") }
+            }) { Text("HF") }
 
-            OutlinedButton(
-                enabled = !busy,
-                onClick = { pickFolder.launch(EdgeModelImporter.DOWNLOADS_TREE_URI) }
-            ) { Text("Import folder") }
-
-            OutlinedButton(
-                enabled = !busy,
-                onClick = { pickFiles.launch(arrayOf("*/*")) }
-            ) { Text("Import files") }
+            OutlinedButton(enabled = !busy, onClick = { pickFolder.launch(EdgeModelImporter.DOWNLOADS_TREE_URI) }) { Text("Folder") }
+            OutlinedButton(enabled = !busy, onClick = { pickFiles.launch(arrayOf("*/*")) }) { Text("Files") }
         }
 
-        Text("File checklist:")
-        LazyColumn(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-            items(checklist) { (name, present) ->
-                Text((if (present) "  v  " else "  -  ") + name)
-            }
+        Text("Checklist (${checklist.count { it.second }}/14):", style = MaterialTheme.typography.titleSmall)
+        checklist.forEach { (name, present) ->
+            Text((if (present) "  v  " else "  -  ") + name)
         }
-
-        // Phase 6: Keys section (Nexa, HF, OpenRouter, Vertex, AI Studio, Anthropic).
-        // Phase 6: Provider library list (add/edit/delete NamedBackend entries).
+        Text(" ")
     }
 }
 
