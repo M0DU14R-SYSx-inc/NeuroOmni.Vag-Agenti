@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="@color/icon_backplate"
+    android:padding="8dp">
+    <TextView
+        android:id="@+id/widget_chat_input"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:hint="Ask Horizons..."
+        android:textColor="@color/teal_accent"
+        android:textColorHint="@color/teal_accent" />
+    <ImageView
+        android:id="@+id/widget_chat_mic"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:contentDescription="Mic"
+        android:tint="@color/teal_accent"
+        android:src="@drawable/ic_mic" />
+</LinearLayout>

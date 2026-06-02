@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="icon_backplate">#FF050709</color>
+    <color name="teal_accent">#FF2DD4D9</color>
+    <color name="teal_accent_bright">#FF4FE7EC</color>
+    <color name="action_yellow">#FFF5C518</color>
+</resources>

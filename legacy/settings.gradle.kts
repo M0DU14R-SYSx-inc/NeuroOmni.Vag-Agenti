@@ -20,7 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Horizons"
-include(":shared")
-include(":horizons")
-include(":watchdog")
+rootProject.name = "HorizonsUI"
+include(":app")
