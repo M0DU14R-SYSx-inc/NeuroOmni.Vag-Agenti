@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
@@ -42,74 +44,79 @@ fun RouterPanel(modifier: Modifier = Modifier) {
                 ?: "No model staged."
         )
     }
+    var checklist by remember { mutableStateOf(currentChecklist(ctx)) }
+
+    fun refresh() {
+        status = EdgeModelFactory.installedModelDir(ctx)?.let { "Model staged: ${it.absolutePath}" }
+            ?: "No model staged."
+        checklist = currentChecklist(ctx)
+    }
 
     val pickFolder = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        busy = true
-        line = "Importing from picked folder..."
-        progressFrac = null
+        busy = true; line = "Scanning folder..."; progressFrac = null
         scope.launch {
-            val res = EdgeModelImporter.importFromTree(ctx, uri)
-            res.onSuccess { r ->
-                line = if (r.missing.isEmpty()) {
-                    "Imported ${r.copied.size}/14 files. Loading engine..."
-                } else {
-                    "Imported ${r.copied.size}/14. Missing: ${r.missing.joinToString()}"
-                }
-                if (r.missing.isEmpty()) {
-                    app.reloadEngine()
-                    line = "Engine ready: ${app.engine().backendTag}"
-                }
-                status = "Model staged: ${r.destDir.absolutePath}"
-            }.onFailure { e ->
-                line = "Import failed: ${e.message}"
-            }
+            EdgeModelImporter.importFromTree(ctx, uri) { p ->
+                line = "Copying [${p.fileIndex}/${p.fileCount}] ${p.currentFile}"
+                progressFrac = p.fraction
+            }.onSuccess { r ->
+                line = "Copied ${r.copied.size}/14. " +
+                    if (r.missing.isEmpty()) "Loading engine..." else "Still missing: ${r.missing.size}"
+                refresh()
+                if (r.missing.isEmpty()) { app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}" }
+            }.onFailure { line = "Import failed: ${it.message}" }
             busy = false
         }
     }
 
-    Column(
-        modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+    val pickFiles = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        busy = true; line = "Importing ${uris.size} file(s)..."; progressFrac = null
+        scope.launch {
+            EdgeModelImporter.importFiles(ctx, uris) { p ->
+                line = "Copying [${p.fileIndex}/${p.fileCount}] ${p.currentFile}"
+                progressFrac = p.fraction
+            }.onSuccess { r ->
+                line = "Copied ${r.copied.size} file(s). " +
+                    if (r.missing.isEmpty()) "Loading engine..." else "Still missing: ${r.missing.size}"
+                refresh()
+                if (r.missing.isEmpty()) { app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}" }
+            }.onFailure { line = "Import failed: ${it.message}" }
+            busy = false
+        }
+    }
+
+    Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Router — provider library")
         Text("Engine: ${app.engine().backendTag}")
         Text(status)
 
-        if (busy) {
+        if (busy || line.isNotBlank()) {
             Text(line)
-            val frac = progressFrac
-            if (frac != null) {
-                LinearProgressIndicator(progress = { frac.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
-            } else {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            if (busy) {
+                val f = progressFrac
+                if (f != null) LinearProgressIndicator(progress = { f.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                else LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
-        } else if (line.isNotBlank()) {
-            Text(line)
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 enabled = !busy,
                 onClick = {
-                    busy = true
-                    line = "Starting download..."
-                    progressFrac = null
+                    busy = true; line = "Starting HF download..."; progressFrac = null
                     scope.launch {
-                        val result = EdgeModelDownloader.download(ctx) { p ->
+                        EdgeModelDownloader.download(ctx) { p ->
                             line = "[${p.fileIndex}/${p.fileCount}] ${p.currentFile}"
                             progressFrac = p.fraction
-                        }
-                        result.onSuccess { dest ->
-                            status = "Model staged: ${dest.absolutePath}"
-                            line = "Download complete. Loading engine..."
-                            app.reloadEngine()
-                            line = "Engine ready: ${app.engine().backendTag}"
-                        }.onFailure { e ->
-                            line = "Download failed: ${e.message}"
-                        }
+                        }.onSuccess {
+                            refresh(); line = "Download complete. Loading engine..."
+                            app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}"
+                        }.onFailure { line = "Download failed: ${it.message}" }
                         busy = false
                     }
                 }
@@ -117,11 +124,33 @@ fun RouterPanel(modifier: Modifier = Modifier) {
 
             OutlinedButton(
                 enabled = !busy,
-                onClick = { pickFolder.launch(null) }
-            ) { Text("Import from folder") }
+                onClick = { pickFolder.launch(EdgeModelImporter.DOWNLOADS_TREE_URI) }
+            ) { Text("Import folder") }
+
+            OutlinedButton(
+                enabled = !busy,
+                onClick = { pickFiles.launch(arrayOf("*/*")) }
+            ) { Text("Import files") }
         }
 
-        // Phase 6: Keys section (Nexa, HuggingFace, OpenRouter, Vertex, AI Studio, Anthropic).
+        Text("File checklist:")
+        LazyColumn(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            items(checklist) { (name, present) ->
+                Text((if (present) "  v  " else "  -  ") + name)
+            }
+        }
+
+        // Phase 6: Keys section (Nexa, HF, OpenRouter, Vertex, AI Studio, Anthropic).
         // Phase 6: Provider library list (add/edit/delete NamedBackend entries).
+    }
+}
+
+private fun currentChecklist(ctx: android.content.Context): List<Pair<String, Boolean>> {
+    val dir = EdgeModelFactory.installedModelDir(ctx) ?: java.io.File(
+        ctx.getExternalFilesDir(EdgeModelFactory.MODELS_DIR) ?: ctx.filesDir,
+        EdgeModelDownloader.MODEL_DIR_NAME
+    )
+    return EdgeModelImporter.WANTED.sorted().map { name ->
+        name to java.io.File(dir, name).let { it.isFile && it.length() > 0 }
     }
 }
