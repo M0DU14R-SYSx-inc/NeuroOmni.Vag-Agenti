@@ -57,6 +57,14 @@ android {
 
     packaging {
         resources.excludes += setOf("META-INF/{AL2.0,LGPL2.1}", "META-INF/DEPENDENCIES")
+        jniLibs {
+            // Nexa SDK and onnxruntime-android each ship libonnxruntime.so and
+            // libonnxruntime4j_jni.so. Take the first one packaged; both are ORT.
+            pickFirsts += setOf(
+                "**/libonnxruntime.so",
+                "**/libonnxruntime4j_jni.so"
+            )
+        }
     }
 }
 
