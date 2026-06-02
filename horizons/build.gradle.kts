@@ -31,9 +31,24 @@ android {
 
     kotlinOptions { jvmTarget = "17" }
 
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file("release/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
-        debug { isMinifyEnabled = false }
-        release { isMinifyEnabled = false }
+        debug {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
+        }
+        release {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 
     defaultConfig {

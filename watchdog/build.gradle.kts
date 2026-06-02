@@ -28,6 +28,20 @@ android {
     }
 
     kotlinOptions { jvmTarget = "17" }
+
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file("release/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
+    buildTypes {
+        debug { signingConfig = signingConfigs.getByName("debug") }
+        release { signingConfig = signingConfigs.getByName("debug") }
+    }
 }
 
 dependencies {

@@ -6,6 +6,9 @@ on:
       - '**'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,16 +42,31 @@ jobs:
       - name: Build Watchdog debug APK
         run: ./gradlew :watchdog:assembleDebug --no-daemon --stacktrace
 
-      - name: Upload Horizons APK
+      - name: Stage APKs
+        run: |
+          mkdir -p out
+          cp horizons/build/outputs/apk/debug/horizons-debug.apk out/horizons.apk
+          cp watchdog/build/outputs/apk/debug/watchdog-debug.apk out/watchdog.apk
+          ls -la out
+
+      - name: Upload artifacts (Actions tab)
         uses: actions/upload-artifact@v4
         with:
-          name: horizons-debug-apk
-          path: horizons/build/outputs/apk/debug/*.apk
+          name: horizons-apks
+          path: out/*.apk
           if-no-files-found: error
 
-      - name: Upload Watchdog APK
-        uses: actions/upload-artifact@v4
+      - name: Publish "latest-debug" release (stable download URL)
+        if: github.ref == 'refs/heads/claude/jolly-lamport-5cJJ4' || github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
         with:
-          name: watchdog-debug-apk
-          path: watchdog/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+          tag_name: latest-debug
+          name: latest-debug (auto)
+          body: |
+            Auto-built from ${{ github.sha }} on ${{ github.ref_name }}.
+            Install Watchdog first, then Horizons.
+          files: |
+            out/horizons.apk
+            out/watchdog.apk
+          prerelease: true
+          make_latest: false
