@@ -1,6 +1,7 @@
 package com.horizons
 
 import android.app.Application
+import android.util.Log
 import com.horizons.ipc.WatchdogWsClient
 import com.horizons.model.EdgeModel
 import com.horizons.model.EdgeModelFactory
@@ -22,22 +23,30 @@ class HorizonsApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        watchdog = WatchdogWsClient(this).also { it.start() }
-        // Pick an EdgeModel based on what's staged; Stub if model folder not present yet.
-        edge = EdgeModelFactory.create(this)
+        runCatching {
+            watchdog = WatchdogWsClient(this).also { it.start() }
+        }.onFailure { Log.e(TAG, "watchdog init failed", it) }
+        if (!::watchdog.isInitialized) watchdog = WatchdogWsClient(this)
+
+        edge = runCatching { EdgeModelFactory.create(this) }
+            .onFailure { Log.e(TAG, "edge factory failed", it) }
+            .getOrElse { StubEdgeModel() }
     }
 
-    /** Snapshot the current engine for callers (UI). May be Stub until model staged + loaded. */
     fun engine(): EdgeModel = edge
 
-    /** Reselect the factory and load() the engine. Called after a successful model download. */
     suspend fun reloadEngine() = loadMutex.withLock {
         runCatching { edge.unload() }
-        val next = EdgeModelFactory.create(this)
-        next.load()
+        val next = runCatching { EdgeModelFactory.create(this) }.getOrElse { StubEdgeModel() }
+        runCatching { next.load() }.onFailure {
+            Log.e(TAG, "engine load failed; falling back to stub", it)
+            edge = StubEdgeModel()
+            return@withLock
+        }
         edge = next
     }
 
-    /** Fire-and-forget version for UI calls. */
     fun reloadEngineAsync() { scope.launch { reloadEngine() } }
+
+    private companion object { const val TAG = "HorizonsApp" }
 }

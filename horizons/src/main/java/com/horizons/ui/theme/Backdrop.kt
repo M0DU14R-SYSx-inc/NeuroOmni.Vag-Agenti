@@ -1,19 +1,34 @@
 package com.horizons.ui.theme
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import com.horizons.R
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 
+/**
+ * Pure-Compose radial gradient. Slate gray + teal bloom upper-left.
+ * Replaces the XML <shape> drawable to avoid painterResource inflation issues
+ * on some Android versions.
+ */
 @Composable
 fun HorizonsBackdrop() {
-    Image(
-        painter = painterResource(id = R.drawable.horizons_backdrop),
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = Modifier.fillMaxSize()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFF1F4A55),
+                        Color(0xFF243038),
+                        Color(0xFF1A242B)
+                    ),
+                    center = Offset(380f, 480f),
+                    radius = 1400f
+                )
+            )
     )
 }
