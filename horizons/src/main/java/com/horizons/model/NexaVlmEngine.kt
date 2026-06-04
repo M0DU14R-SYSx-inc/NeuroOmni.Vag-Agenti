@@ -28,16 +28,19 @@ class NexaVlmEngine(
 
     override suspend fun load() {
         NexaSdk.getInstance().init(context)
+        // Per Nexa Android docs: model_path is a FILE PATH pointing at files-1-1.nexa,
+        // not the folder. The SDK reads nexa.manifest + the shards alongside it.
+        val entry = java.io.File(modelFolder, "files-1-1.nexa").absolutePath
         val input = VlmCreateInput(
             model_name = "omni-neural",
-            model_path = modelFolder,
+            model_path = entry,
             mmproj_path = "",
-            config = ModelConfig(),
+            config = ModelConfig(max_tokens = 2048, enable_thinking = false),
             plugin_id = NexaSdk.PLUGIN_ID_NPU,
             device_id = ""
         )
         vlm = VlmWrapper.builder().vlmCreateInput(input).build().getOrThrow()
-        Log.i(TAG, "OmniNeural-4B-mobile loaded on Hexagon NPU; folder=$modelFolder")
+        Log.i(TAG, "OmniNeural-4B-mobile loaded on Hexagon NPU; entry=$entry")
     }
 
     override suspend fun unload() {
