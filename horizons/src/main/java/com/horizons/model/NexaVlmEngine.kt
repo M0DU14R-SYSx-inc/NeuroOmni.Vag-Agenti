@@ -26,35 +26,41 @@ class NexaVlmEngine(
     override val backendTag = "nexa-npu"
     private var vlm: VlmWrapper? = null
 
+    /** Captured file listing on last load attempt — surfaced to UI in error messages. */
+    @Volatile var lastFolderListing: String = "(not loaded yet)"
+        private set
+
     override suspend fun load() {
         NexaSdk.getInstance().init(context)
-        // Touch an empty config.json if missing — HF ships it as 0 bytes
-        // and Chrome occasionally skips 0-byte files. SDK may require the
-        // file's presence regardless of size.
+        // Touch empty config.json if missing — HF ships at 0 bytes and Chrome
+        // can drop 0-byte downloads. SDK may need the file to exist.
         runCatching {
             val cfg = java.io.File(modelFolder, "config.json")
             if (!cfg.exists()) cfg.createNewFile()
         }
-        // Log the model folder contents so engine errors include real file list.
-        val listing = runCatching {
-            java.io.File(modelFolder).listFiles()?.joinToString(", ") {
-                "${it.name}(${it.length()})"
-            } ?: "no listing"
+        // Snapshot the folder contents for error-display + log.
+        lastFolderListing = runCatching {
+            java.io.File(modelFolder).listFiles()
+                ?.sortedBy { it.name }
+                ?.joinToString("\n") { "  ${it.name} (${it.length()}B)" }
+                ?: "no listing"
         }.getOrElse { "listing failed: ${it.message}" }
-        Log.i(TAG, "Loading from $modelFolder; files=[$listing]")
-        // Per Nexa Android docs: model_path is a FILE PATH pointing at files-1-1.nexa,
-        // not the folder. The SDK reads nexa.manifest + the shards alongside it.
-        val entry = java.io.File(modelFolder, "files-1-1.nexa").absolutePath
+        Log.i(TAG, "Loading from $modelFolder:\n$lastFolderListing")
+
+        // Pass the FOLDER as model_path. Legacy verified-green code used the folder;
+        // Nexa quickstart docs show a file path but observed Model create() errors
+        // suggest the folder is correct. If both fail, the SDK likely accepts either
+        // and the real issue is elsewhere (storage path, init, missing native lib).
         val input = VlmCreateInput(
             model_name = "omni-neural",
-            model_path = entry,
+            model_path = modelFolder,
             mmproj_path = "",
             config = ModelConfig(max_tokens = 2048, enable_thinking = false),
             plugin_id = NexaSdk.PLUGIN_ID_NPU,
             device_id = ""
         )
         vlm = VlmWrapper.builder().vlmCreateInput(input).build().getOrThrow()
-        Log.i(TAG, "OmniNeural-4B-mobile loaded on Hexagon NPU; entry=$entry")
+        Log.i(TAG, "OmniNeural-4B-mobile loaded on Hexagon NPU; folder=$modelFolder")
     }
 
     override suspend fun unload() {
