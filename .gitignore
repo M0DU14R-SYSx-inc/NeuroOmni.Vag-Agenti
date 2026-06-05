@@ -4,6 +4,9 @@ build/
 */build/
 !gradle/wrapper/gradle-wrapper.jar
 
+# Claude Code session state (agent worktrees, local settings)
+.claude/
+
 # Android Studio / IntelliJ
 .idea/
 *.iml
