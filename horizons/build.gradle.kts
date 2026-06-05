@@ -17,6 +17,9 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0-phase1"
+        // Razr Ultra is arm64-v8a only. Excluding x86/v7a slashes APK
+        // size from ~840 MB to ~300 MB and stops download truncation.
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     buildFeatures {
