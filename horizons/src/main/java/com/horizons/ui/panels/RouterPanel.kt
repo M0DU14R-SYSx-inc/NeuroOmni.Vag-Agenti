@@ -210,7 +210,14 @@ private fun KeyRow(app: HorizonsApplication, label: String, key: String) {
             singleLine = true
         )
         TextButton(enabled = value.isNotBlank() && !saved, onClick = {
-            app.credentials.put(key, value.trim()); saved = true
+            app.credentials.put(key, value.trim())
+            saved = true
+            // Side-effects per-key. nexa.token gates NPU license activation
+            // and must be re-exported as an env var + engine reloaded.
+            if (key == "nexa.token") {
+                app.applyNexaToken()
+                app.reloadEngineAsync()
+            }
         }) { Text(if (saved) "saved" else "save") }
     }
 }

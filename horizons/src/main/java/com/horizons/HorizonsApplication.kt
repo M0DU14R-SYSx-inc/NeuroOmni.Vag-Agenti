@@ -51,6 +51,13 @@ class HorizonsApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         credentials = CredentialStore(this)
+
+        // Set NEXA_TOKEN env var BEFORE any SDK init. Per Nexa docs the token is
+        // the NPU license key — one device per token, free from Nexa AI Model Hub.
+        // Without it the SDK may silently fail to activate the NPU path. Setting
+        // empty is harmless; setting before init is what matters.
+        applyNexaToken()
+
         runCatching {
             watchdog = WatchdogWsClient(this).also { it.start() }
         }.onFailure { Log.e(TAG, "watchdog init failed", it) }
@@ -97,6 +104,20 @@ class HorizonsApplication : Application() {
     }
 
     fun reloadEngineAsync() { scope.launch { reloadEngine() } }
+
+    /**
+     * Read nexa.token from CredentialStore and export it as the NEXA_TOKEN
+     * env var so the Nexa SDK / NexaML runtime can activate the NPU license.
+     * Safe to call multiple times — used at boot and after the user enters
+     * a new token in Router panel.
+     */
+    fun applyNexaToken() {
+        val token = credentials.get("nexa.token")?.trim().orEmpty()
+        runCatching {
+            android.system.Os.setenv("NEXA_TOKEN", token, true)
+            Log.i(TAG, "NEXA_TOKEN env var set (length=${token.length})")
+        }.onFailure { Log.w(TAG, "Failed to set NEXA_TOKEN env var", it) }
+    }
 
     suspend fun tryLoadStt() {
         val dir = MoonshineDownloader.installedDir(this) ?: run {
