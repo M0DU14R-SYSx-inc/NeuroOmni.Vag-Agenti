@@ -16,4 +16,4 @@ data class NamedBackend(
 )
 
 @Serializable
-enum class Wire { OpenAIChatCompletions, AnthropicMessages, GoogleGenerateContent, OpenAIResponses, WebSearch }
+enum class Wire { OpenAIChatCompletions, AnthropicMessages, GoogleGenerateContent, OpenAIResponses, WebSearch, TermuxCli }
