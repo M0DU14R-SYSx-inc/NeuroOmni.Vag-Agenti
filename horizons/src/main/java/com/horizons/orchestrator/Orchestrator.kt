@@ -28,14 +28,16 @@ class Orchestrator(
     private val context: Context,
     private val getEdge: () -> EdgeModel,
     private val credentials: CredentialStore,
-    private val library: ProviderLibrary
+    private val library: ProviderLibrary,
+    private val systemPromptSupplier: () -> String = { "" },
 ) {
     fun stream(prompt: String, imagePath: String? = null, forcedToolId: String? = null): Flow<String> = flow {
+        val sys = systemPromptSupplier().takeIf { it.isNotBlank() }
         // Explicit operator pick wins.
         if (forcedToolId != null) {
             val backend = library.byId(forcedToolId)
             if (backend != null) {
-                val tool = ProviderFactory.build(context, backend, credentials)
+                val tool = ProviderFactory.build(context, backend, credentials, sys)
                 if (tool != null) {
                     emitAll(tool.run(prompt, imagePath).catch { e ->
                         emit("[forced backend $forcedToolId failed: ${e.javaClass.simpleName}: ${e.message}]")
@@ -65,7 +67,7 @@ class Orchestrator(
         // Failover lane: prefer marked NamedBackend, else legacy openrouter.key direct.
         val failover = library.failoverTarget()
         if (failover != null) {
-            val tool = ProviderFactory.build(context, failover, credentials)
+            val tool = ProviderFactory.build(context, failover, credentials, sys)
             if (tool != null) {
                 emitAll(tool.run(prompt, imagePath).catch { e ->
                     emit("[failover ${failover.displayName} failed: ${e.javaClass.simpleName}: ${e.message}]")

@@ -20,14 +20,19 @@ object ProviderFactory {
 
     private const val TAG = "ProviderFactory"
 
-    fun build(context: Context, backend: NamedBackend, credentials: CredentialStore): Tool? {
+    fun build(
+        context: Context,
+        backend: NamedBackend,
+        credentials: CredentialStore,
+        systemPrompt: String? = null,
+    ): Tool? {
         return when (backend.wire) {
             Wire.OpenAIChatCompletions,
             Wire.OpenAIResponses -> buildOpenAICompat(backend, credentials)
 
-            Wire.AnthropicMessages -> buildAnthropic(backend, credentials)
+            Wire.AnthropicMessages -> buildAnthropic(backend, credentials, systemPrompt)
 
-            Wire.GoogleGenerateContent -> buildGoogle(backend, credentials)
+            Wire.GoogleGenerateContent -> buildGoogle(backend, credentials, systemPrompt)
 
             Wire.WebSearch -> {
                 Log.w(TAG, "WebSearch wire is not implemented: ${backend.id}")
@@ -55,7 +60,11 @@ object ProviderFactory {
         return openRouterToTool(backend, client)
     }
 
-    private fun buildAnthropic(backend: NamedBackend, credentials: CredentialStore): Tool? {
+    private fun buildAnthropic(
+        backend: NamedBackend,
+        credentials: CredentialStore,
+        systemPrompt: String?,
+    ): Tool? {
         val host = backend.baseUrl.substringAfter("://").substringBefore('/')
         return when {
             host == "api.anthropic.com" || backend.baseUrl.startsWith("https://api.anthropic.com") -> {
@@ -63,9 +72,13 @@ object ProviderFactory {
                     Log.w(TAG, "AnthropicDirect: missing credential '${backend.credentialKey}'")
                     return null
                 }
-                AnthropicDirectClient(credentials = credentials, model = backend.modelId)
+                AnthropicDirectClient(
+                    credentials = credentials,
+                    model = backend.modelId,
+                    systemPrompt = systemPrompt?.takeIf { it.isNotBlank() },
+                )
             }
-            isVertexUrl(backend.baseUrl) -> buildVertex(backend, credentials, VertexPublisher.ANTHROPIC)
+            isVertexUrl(backend.baseUrl) -> buildVertex(backend, credentials, VertexPublisher.ANTHROPIC, systemPrompt)
             else -> {
                 Log.w(TAG, "AnthropicMessages: unrecognized baseUrl '${backend.baseUrl}' for ${backend.id}")
                 null
@@ -73,7 +86,11 @@ object ProviderFactory {
         }
     }
 
-    private fun buildGoogle(backend: NamedBackend, credentials: CredentialStore): Tool? {
+    private fun buildGoogle(
+        backend: NamedBackend,
+        credentials: CredentialStore,
+        @Suppress("UNUSED_PARAMETER") systemPrompt: String?,
+    ): Tool? {
         val host = backend.baseUrl.substringAfter("://").substringBefore('/')
         return when {
             host == "generativelanguage.googleapis.com" ||
@@ -82,9 +99,12 @@ object ProviderFactory {
                     Log.w(TAG, "AIStudioGemini: missing credential 'aistudio.key'")
                     return null
                 }
+                // Gemini uses implicit caching server-side — no cache_control breakpoint
+                // to wire from the client. Static-prefix benefit is automatic for repeated
+                // prompts above the per-model threshold.
                 AIStudioGeminiClient(credentials = credentials, model = backend.modelId)
             }
-            isVertexUrl(backend.baseUrl) -> buildVertex(backend, credentials, VertexPublisher.GOOGLE)
+            isVertexUrl(backend.baseUrl) -> buildVertex(backend, credentials, VertexPublisher.GOOGLE, systemPrompt = null)
             else -> {
                 Log.w(TAG, "GoogleGenerateContent: unrecognized baseUrl '${backend.baseUrl}' for ${backend.id}")
                 null
@@ -96,6 +116,7 @@ object ProviderFactory {
         backend: NamedBackend,
         credentials: CredentialStore,
         publisher: VertexPublisher,
+        systemPrompt: String? = null,
     ): Tool? {
         if (!credentials.has("vertex.service_account_json")) {
             Log.w(TAG, "Vertex: missing credential 'vertex.service_account_json'")
@@ -113,6 +134,7 @@ object ProviderFactory {
             project = project,
             location = location,
             credentials = credentials,
+            systemPrompt = systemPrompt?.takeIf { it.isNotBlank() && publisher == VertexPublisher.ANTHROPIC },
         )
     }
 

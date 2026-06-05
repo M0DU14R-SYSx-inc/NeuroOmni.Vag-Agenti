@@ -12,6 +12,7 @@ import com.horizons.model.MoonshineSttEngine
 import com.horizons.model.StubEdgeModel
 import com.horizons.orchestrator.Orchestrator
 import com.horizons.provider.CredentialStore
+import com.horizons.provider.ProviderLibrary
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,8 +29,26 @@ class HorizonsApplication : Application() {
         private set
     lateinit var credentials: CredentialStore
         private set
+    lateinit var providerLibrary: ProviderLibrary
+        private set
     lateinit var orchestrator: Orchestrator
         private set
+
+    /**
+     * Cacheable static prefix — the CLAUDE_AT_HORIZONS.md wiki bundled in
+     * assets. Loaded once, kept in memory. Pass this as `systemPrompt` to
+     * AnthropicDirectClient / VertexClient (anthropic publisher) so the
+     * Anthropic Messages API caches it with cache_control: ephemeral.
+     * Use [com.horizons.provider.AnthropicDirectClient.preWarm] before
+     * fanning out sub-agents so the first read is a hit, not a miss.
+     */
+    val wikiSystemPrompt: String by lazy {
+        runCatching {
+            assets.open("CLAUDE_AT_HORIZONS.md").bufferedReader().use { it.readText() }
+        }.getOrElse {
+            Log.w(TAG, "wiki load failed", it); ""
+        }
+    }
 
     @Volatile private var edge: EdgeModel = StubEdgeModel()
     @Volatile var moonshine: MoonshineSttEngine? = null
@@ -63,7 +82,14 @@ class HorizonsApplication : Application() {
         }.onFailure { Log.e(TAG, "watchdog init failed", it) }
         if (!::watchdog.isInitialized) watchdog = WatchdogWsClient(this)
 
-        orchestrator = Orchestrator(this, { edge }, credentials)
+        providerLibrary = ProviderLibrary(this)
+        orchestrator = Orchestrator(
+            context = this,
+            getEdge = { edge },
+            credentials = credentials,
+            library = providerLibrary,
+            systemPromptSupplier = { wikiSystemPrompt },
+        )
 
         edge = StubEdgeModel()
         if (EdgeModelFactory.installedModelDir(this) != null) {
