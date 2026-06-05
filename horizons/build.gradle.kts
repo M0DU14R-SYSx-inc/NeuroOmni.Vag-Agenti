@@ -61,8 +61,16 @@ android {
     packaging {
         resources.excludes += setOf("META-INF/{AL2.0,LGPL2.1}", "META-INF/DEPENDENCIES")
         jniLibs {
-            // Nexa SDK and onnxruntime-android each ship libonnxruntime.so and
-            // libonnxruntime4j_jni.so. Take the first one packaged; both are ORT.
+            // Razr Ultra is arm64 only. Strip every other ABI bundled by AARs
+            // (Nexa SDK + ORT each ship libs for 4 ABIs by default).
+            excludes += setOf(
+                "lib/armeabi-v7a/**",
+                "lib/armeabi/**",
+                "lib/x86/**",
+                "lib/x86_64/**",
+                "lib/mips/**",
+                "lib/mips64/**"
+            )
             pickFirsts += setOf(
                 "**/libonnxruntime.so",
                 "**/libonnxruntime4j_jni.so"

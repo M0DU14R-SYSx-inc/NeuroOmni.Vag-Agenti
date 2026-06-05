@@ -43,6 +43,17 @@ android {
         debug { signingConfig = signingConfigs.getByName("debug") }
         release { signingConfig = signingConfigs.getByName("debug") }
     }
+
+    packaging {
+        jniLibs {
+            excludes += setOf(
+                "lib/armeabi-v7a/**",
+                "lib/armeabi/**",
+                "lib/x86/**",
+                "lib/x86_64/**"
+            )
+        }
+    }
 }
 
 dependencies {
