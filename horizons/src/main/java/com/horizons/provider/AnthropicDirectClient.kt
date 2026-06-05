@@ -14,25 +14,54 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /**
- * Direct Anthropic Messages API client.
+ * Direct Anthropic Messages API client with prompt caching.
  *
  * Streams tokens via Anthropic's SSE event stream. The API key is fetched
- * lazily on each call from [CredentialStore] under the `anthropic.key`
- * convention (see [CredentialStore]).
+ * lazily on each call from [CredentialStore] under the `anthropic.key` convention.
  *
- * Only text deltas are emitted — `content_block_delta` events with a
- * `delta.type == "text_delta"`. All other event types (message_start,
- * content_block_start, content_block_stop, message_delta, message_stop,
- * ping, error) are observed but produce no downstream tokens; an `error`
- * event payload is surfaced as an [IllegalStateException].
+ * Prompt caching is wired via [systemPrompt] — when present, it's sent as a
+ * `system` block array with `cache_control` on the last block. Pricing per
+ * Anthropic docs:
+ *   - Cache write (5 min TTL): 1.25x base input price
+ *   - Cache write (1h TTL):    2x base input price
+ *   - Cache read:              0.1x base input price (90% discount)
+ *
+ * Minimum prompt size to cache: 1,024 tokens for Sonnet, 4,096 for Opus/Haiku.
+ *
+ * Verify cache hits via [lastUsage] — populated from `message_start`'s `usage`:
+ *   - cache_creation_input_tokens > 0 → cache write occurred
+ *   - cache_read_input_tokens > 0    → cache read occurred (savings active)
+ *
+ * Only text deltas are emitted (`content_block_delta` with `delta.type ==
+ * "text_delta"`); `error` events surface as IllegalStateException.
  */
 class AnthropicDirectClient(
     private val credentials: CredentialStore,
     private val model: String = DEFAULT_MODEL,
-    private val maxTokens: Int = DEFAULT_MAX_TOKENS
+    private val maxTokens: Int = DEFAULT_MAX_TOKENS,
+    private val systemPrompt: String? = null,
+    private val cacheTtl: CacheTtl = CacheTtl.FIVE_MIN
 ) : Tool {
     override val id: String = "anthropic-direct"
     override val displayName: String = "Anthropic (direct)"
+
+    enum class CacheTtl(val apiValue: String?) {
+        NONE(null),
+        FIVE_MIN("5m"),
+        ONE_HOUR("1h")
+    }
+
+    data class Usage(
+        val cacheCreationTokens: Int,
+        val cacheReadTokens: Int,
+        val inputTokens: Int,
+        val outputTokens: Int
+    ) {
+        val isCacheHit: Boolean get() = cacheReadTokens > 0
+    }
+
+    @Volatile var lastUsage: Usage? = null
+        private set
 
     private val http = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -47,6 +76,21 @@ class AnthropicDirectClient(
             put("model", model)
             put("max_tokens", maxTokens)
             put("stream", true)
+            // System prompt as a structured array with cache_control on the last block.
+            // This is the "static prefix" that gets cached. Pre-warm by sending a request
+            // with this same systemPrompt + max_tokens:1 before fanning out sub-agents.
+            if (!systemPrompt.isNullOrEmpty()) {
+                put("system", JSONArray().put(JSONObject().apply {
+                    put("type", "text")
+                    put("text", systemPrompt)
+                    if (cacheTtl != CacheTtl.NONE) {
+                        put("cache_control", JSONObject().apply {
+                            put("type", "ephemeral")
+                            cacheTtl.apiValue?.let { put("ttl", it) }
+                        })
+                    }
+                }))
+            }
             put("messages", JSONArray().put(JSONObject().apply {
                 put("role", "user")
                 put("content", prompt)
@@ -69,12 +113,6 @@ class AnthropicDirectClient(
             }
             val source = resp.body?.source() ?: throw IllegalStateException("Anthropic: empty body")
 
-            // Anthropic SSE frames look like:
-            //   event: content_block_delta
-            //   data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
-            //
-            // We only need the `data:` line — the `type` field inside the JSON is
-            // authoritative, so the `event:` line is ignored.
             while (!source.exhausted()) {
                 val line = source.readUtf8Line() ?: break
                 if (line.isBlank() || line.startsWith(":")) continue
@@ -85,11 +123,32 @@ class AnthropicDirectClient(
                 val token = runCatching {
                     val obj = JSONObject(payload)
                     when (obj.optString("type")) {
+                        "message_start" -> {
+                            // Capture cache usage for verification.
+                            obj.optJSONObject("message")?.optJSONObject("usage")?.let { u ->
+                                lastUsage = Usage(
+                                    cacheCreationTokens = u.optInt("cache_creation_input_tokens", 0),
+                                    cacheReadTokens = u.optInt("cache_read_input_tokens", 0),
+                                    inputTokens = u.optInt("input_tokens", 0),
+                                    outputTokens = u.optInt("output_tokens", 0)
+                                )
+                            }
+                            null
+                        }
                         "content_block_delta" -> {
                             val delta = obj.optJSONObject("delta")
                             if (delta?.optString("type") == "text_delta") {
                                 delta.optString("text").takeIf { it.isNotEmpty() }
                             } else null
+                        }
+                        "message_delta" -> {
+                            // Anthropic emits final usage totals here; update output tokens.
+                            obj.optJSONObject("usage")?.let { u ->
+                                lastUsage = lastUsage?.copy(
+                                    outputTokens = u.optInt("output_tokens", lastUsage?.outputTokens ?: 0)
+                                )
+                            }
+                            null
                         }
                         "error" -> {
                             val msg = obj.optJSONObject("error")?.optString("message") ?: payload.take(500)
@@ -104,6 +163,19 @@ class AnthropicDirectClient(
             }
         }
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * Pre-warm: send a 1-token request with the system prompt to write the cache
+     * BEFORE fanning out concurrent calls. Per Anthropic docs:
+     *   "A cache entry only becomes available to be read after the very first
+     *    API response begins. If your main CLI spins up all four sub-agents
+     *    simultaneously, none of them will find an existing cache."
+     */
+    suspend fun preWarm(): Usage? {
+        // Collect (and discard) the stream; lastUsage will be populated.
+        run("Reply 'ok'.", null).collect { /* discard */ }
+        return lastUsage
+    }
 
     companion object {
         const val CRED_KEY = "anthropic.key"

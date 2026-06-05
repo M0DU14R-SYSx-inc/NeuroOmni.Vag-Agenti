@@ -37,8 +37,13 @@ class VertexClient(
     val model: String,
     val project: String,
     val location: String,
-    val credentials: CredentialStore
+    val credentials: CredentialStore,
+    val systemPrompt: String? = null,
+    val cacheTtl: AnthropicDirectClient.CacheTtl = AnthropicDirectClient.CacheTtl.FIVE_MIN
 ) : Tool {
+
+    @Volatile var lastUsage: AnthropicDirectClient.Usage? = null
+        private set
 
     override val id: String =
         "vertex-${publisher.name.lowercase()}-$model"
@@ -73,6 +78,18 @@ class VertexClient(
             put("anthropic_version", "vertex-2023-10-16")
             put("stream", true)
             put("max_tokens", 2048)
+            if (!systemPrompt.isNullOrEmpty()) {
+                put("system", JSONArray().put(JSONObject().apply {
+                    put("type", "text")
+                    put("text", systemPrompt)
+                    if (cacheTtl != AnthropicDirectClient.CacheTtl.NONE) {
+                        put("cache_control", JSONObject().apply {
+                            put("type", "ephemeral")
+                            cacheTtl.apiValue?.let { put("ttl", it) }
+                        })
+                    }
+                }))
+            }
             put("messages", JSONArray().put(JSONObject().apply {
                 put("role", "user"); put("content", prompt)
             }))
@@ -102,11 +119,29 @@ class VertexClient(
                 val obj = runCatching { JSONObject(payload) }.getOrNull() ?: continue
                 // Anthropic SSE: content_block_delta -> delta.text
                 val type = obj.optString("type")
-                if (type == "content_block_delta") {
-                    val text = obj.optJSONObject("delta")?.optString("text").orEmpty()
-                    if (text.isNotEmpty()) emit(text)
-                } else if (type == "message_stop") {
-                    break
+                when (type) {
+                    "message_start" -> {
+                        obj.optJSONObject("message")?.optJSONObject("usage")?.let { u ->
+                            lastUsage = AnthropicDirectClient.Usage(
+                                cacheCreationTokens = u.optInt("cache_creation_input_tokens", 0),
+                                cacheReadTokens = u.optInt("cache_read_input_tokens", 0),
+                                inputTokens = u.optInt("input_tokens", 0),
+                                outputTokens = u.optInt("output_tokens", 0)
+                            )
+                        }
+                    }
+                    "content_block_delta" -> {
+                        val text = obj.optJSONObject("delta")?.optString("text").orEmpty()
+                        if (text.isNotEmpty()) emit(text)
+                    }
+                    "message_delta" -> {
+                        obj.optJSONObject("usage")?.let { u ->
+                            lastUsage = lastUsage?.copy(
+                                outputTokens = u.optInt("output_tokens", lastUsage?.outputTokens ?: 0)
+                            )
+                        }
+                    }
+                    "message_stop" -> break
                 }
             }
         }
