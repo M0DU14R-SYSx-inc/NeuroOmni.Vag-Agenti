@@ -24,6 +24,14 @@
     <!-- Screen-ask tile capture target. -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
+    <!-- Outbound Termux bridge: fire shell commands via com.termux.RUN_COMMAND. -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+
+    <!-- Android 11+ package visibility for ComponentName(com.termux, ...) dispatch. -->
+    <queries>
+        <package android:name="com.termux" />
+    </queries>
+
     <application
         android:name=".HorizonsApplication"
         android:label="@string/app_name"
