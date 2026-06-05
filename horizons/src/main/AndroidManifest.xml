@@ -94,6 +94,18 @@
             </intent-filter>
         </service>
 
+        <!-- Tasker / Termux / adb am broadcast control surface. -->
+        <receiver
+            android:name=".tasker.HorizonsTaskerReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.horizons.action.RELOAD_ENGINE" />
+                <action android:name="com.horizons.action.IMPORT_FOLDER" />
+                <action android:name="com.horizons.action.SEND_PROMPT" />
+                <action android:name="com.horizons.action.GET_STATUS" />
+            </intent-filter>
+        </receiver>
+
         <!-- Home-screen chat widget. -->
         <receiver
             android:name=".widget.ChatAppWidgetProvider"
