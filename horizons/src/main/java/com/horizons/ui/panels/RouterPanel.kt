@@ -122,8 +122,9 @@ fun RouterPanel(modifier: Modifier = Modifier) {
             }
         }
 
+        // Two rows so the 4th button doesn't get clipped off the screen edge.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(enabled = !busy, onClick = {
+            Button(modifier = Modifier.weight(1f), enabled = !busy, onClick = {
                 busy = true; line = "Starting HF download..."; progressFrac = null
                 scope.launch {
                     EdgeModelDownloader.download(ctx) { p ->
@@ -137,13 +138,14 @@ fun RouterPanel(modifier: Modifier = Modifier) {
                 }
             }) { Text("HF") }
 
-            OutlinedButton(enabled = !busy, onClick = {
-                // Pass null so the picker opens reliably; user navigates to Downloads.
+            OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy, onClick = {
                 @Suppress("UNCHECKED_CAST")
                 (pickFolder as androidx.activity.result.ActivityResultLauncher<android.net.Uri?>).launch(null)
             }) { Text("Folder") }
-            OutlinedButton(enabled = !busy, onClick = { pickFiles.launch(arrayOf("*/*")) }) { Text("Files") }
-            OutlinedButton(enabled = !busy, onClick = { app.reloadEngineAsync() }) { Text("Reload") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy, onClick = { pickFiles.launch(arrayOf("*/*")) }) { Text("Files") }
+            OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy, onClick = { app.reloadEngineAsync() }) { Text("Reload engine") }
         }
 
         Text("Checklist (${checklist.count { it.second }}/${checklist.size}):", style = MaterialTheme.typography.titleSmall)
