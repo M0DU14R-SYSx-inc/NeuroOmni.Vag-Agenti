@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -118,7 +120,7 @@ afterEvaluate {
             outputs.files.forEach { dir ->
                 if (dir.isDirectory) {
                     stripDirs.forEach { sub ->
-                        val target = java.io.File(dir, sub)
+                        val target = File(dir, sub)
                         if (target.exists()) {
                             println("[stripAarAssets] removing $target")
                             target.deleteRecursively()
