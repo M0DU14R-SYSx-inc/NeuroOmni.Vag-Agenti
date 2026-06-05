@@ -137,7 +137,11 @@ fun RouterPanel(modifier: Modifier = Modifier) {
                 }
             }) { Text("HF") }
 
-            OutlinedButton(enabled = !busy, onClick = { pickFolder.launch(EdgeModelImporter.DOWNLOADS_TREE_URI) }) { Text("Folder") }
+            OutlinedButton(enabled = !busy, onClick = {
+                // Pass null so the picker opens reliably; user navigates to Downloads.
+                @Suppress("UNCHECKED_CAST")
+                (pickFolder as androidx.activity.result.ActivityResultLauncher<android.net.Uri?>).launch(null)
+            }) { Text("Folder") }
             OutlinedButton(enabled = !busy, onClick = { pickFiles.launch(arrayOf("*/*")) }) { Text("Files") }
             OutlinedButton(enabled = !busy, onClick = { app.reloadEngineAsync() }) { Text("Reload") }
         }
