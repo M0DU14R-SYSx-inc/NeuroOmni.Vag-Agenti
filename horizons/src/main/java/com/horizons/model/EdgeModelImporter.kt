@@ -18,13 +18,14 @@ import kotlin.coroutines.coroutineContext
 object EdgeModelImporter {
 
     /**
-     * 14 files. config.json is included again — HF ships it as 0 bytes but the
-     * Nexa SDK appears to require its presence in the folder. The checklist
-     * accepts a 0-byte file as 'present' (only the manifest + weights need
-     * real bytes).
+     * 13 real files. config.json is intentionally NOT in this set —
+     * HF ships it as a 0-byte placeholder and Chrome often drops 0-byte
+     * downloads. The Nexa SDK does want the file to exist on disk, but
+     * NexaVlmEngine.load() auto-creates an empty one if missing, so we
+     * don't gate the checklist on it.
      */
     val WANTED: Set<String> = setOf(
-        "nexa.manifest", "config.json", "files-1-1.nexa",
+        "nexa.manifest", "files-1-1.nexa",
         "attachments-1-3.nexa", "attachments-2-3.nexa", "attachments-3-3.nexa",
         "weights-1-8.nexa", "weights-2-8.nexa", "weights-3-8.nexa", "weights-4-8.nexa",
         "weights-5-8.nexa", "weights-6-8.nexa", "weights-7-8.nexa", "weights-8-8.nexa"
