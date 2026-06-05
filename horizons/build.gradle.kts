@@ -106,3 +106,26 @@ dependencies {
         implementation(libs.nexa.core)
     }
 }
+
+// Strip unused Hexagon HTP version directories from the merged assets.
+// Razr Ultra = Snapdragon 8 Elite = HTP v79. The Nexa AAR ships v79
+// (under htp-files/), v81 (Snapdragon 8 Gen 5) and v85 (future) too —
+// each ~140-160 MB. Dropping the two we don't run saves ~300 MB.
+afterEvaluate {
+    val stripDirs = listOf("npu/htp-files-v81", "npu/htp-files-v85")
+    tasks.matching { it.name.matches(Regex("merge[A-Z]\\w*Assets")) }.configureEach {
+        doLast {
+            outputs.files.forEach { dir ->
+                if (dir.isDirectory) {
+                    stripDirs.forEach { sub ->
+                        val target = java.io.File(dir, sub)
+                        if (target.exists()) {
+                            println("[stripAarAssets] removing $target")
+                            target.deleteRecursively()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
