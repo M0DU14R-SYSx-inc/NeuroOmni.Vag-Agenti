@@ -45,7 +45,7 @@ fun ChatPanel(modifier: Modifier = Modifier) {
     }
 
     Column(modifier.fillMaxSize().padding(12.dp)) {
-        Text("Chat — on-device VLM (${app.engine().backendTag})")
+        Text("Chat — ${app.engine().backendTag} (or cloud fallback)")
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f).padding(vertical = 8.dp),
             state = listState,
@@ -68,18 +68,18 @@ fun ChatPanel(modifier: Modifier = Modifier) {
                     input = ""
                     turns += ChatTurn("you", prompt)
                     val replyIdx = turns.size
-                    turns += ChatTurn("vlm", "")
+                    turns += ChatTurn("...", "")
                     busy = true
                     scope.launch {
                         var acc = ""
-                        app.engine().generateStream(prompt)
+                        app.orchestrator.stream(prompt)
                             .catch { e ->
-                                turns[replyIdx] = ChatTurn("vlm", "[error] ${e.message}")
+                                turns[replyIdx] = ChatTurn("error", "${e.javaClass.simpleName}: ${e.message}")
                             }
                             .onCompletion { busy = false }
                             .collect { token ->
                                 acc += token
-                                turns[replyIdx] = ChatTurn("vlm", acc)
+                                turns[replyIdx] = ChatTurn("reply", acc)
                             }
                     }
                 }

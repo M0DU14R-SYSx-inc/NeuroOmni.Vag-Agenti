@@ -5,16 +5,21 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,6 +34,8 @@ import com.horizons.HorizonsApplication
 import com.horizons.model.EdgeModelDownloader
 import com.horizons.model.EdgeModelFactory
 import com.horizons.model.EdgeModelImporter
+import com.horizons.model.KokoroDownloader
+import com.horizons.model.MoonshineDownloader
 import kotlinx.coroutines.launch
 
 @Composable
@@ -56,7 +63,7 @@ fun RouterPanel(modifier: Modifier = Modifier) {
 
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        busy = true; line = "Scanning picked folder..."; progressFrac = null
+        busy = true; line = "Scanning..."; progressFrac = null
         scope.launch {
             EdgeModelImporter.importFromTree(ctx, uri) { p ->
                 line = "Copying [${p.fileIndex}/${p.fileCount}] ${p.currentFile}"
@@ -64,19 +71,17 @@ fun RouterPanel(modifier: Modifier = Modifier) {
             }.onSuccess { r ->
                 refresh()
                 val staged = checklist.count { it.second }
-                val total = checklist.size
                 line = when {
                     r.candidates == 0 -> "Picked folder appears empty."
-                    staged == 0 -> "Found ${r.candidates} files; none matched the $total required names. Try 'Files' instead."
-                    staged == total -> "All $total staged. Loading engine..."
-                    else -> "Staged $staged/$total. Missing: ${total - staged}"
+                    staged == 0 -> "Found ${r.candidates} files; none matched the ${checklist.size} required."
+                    staged == checklist.size -> "All ${checklist.size} staged. Loading engine..."
+                    else -> "Staged $staged/${checklist.size}."
                 }
-                if (staged == total) { app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}" }
+                if (staged == checklist.size) { app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}" }
             }.onFailure { line = "Import failed: ${it.message}" }
             busy = false
         }
     }
-
     val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
         busy = true; line = "Importing ${uris.size} file(s)..."; progressFrac = null
@@ -87,28 +92,24 @@ fun RouterPanel(modifier: Modifier = Modifier) {
             }.onSuccess { r ->
                 refresh()
                 val staged = checklist.count { it.second }
-                val total = checklist.size
-                line = when {
-                    staged == 0 -> "None of the ${r.candidates} picked files matched the $total required names."
-                    staged == total -> "All $total staged. Loading engine..."
-                    else -> "Staged $staged/$total. Missing: ${total - staged}"
-                }
-                if (staged == total) { app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}" }
+                line = if (staged == checklist.size) "All ${checklist.size} staged." else "Staged $staged/${checklist.size}."
+                if (staged == checklist.size) { app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}" }
             }.onFailure { line = "Import failed: ${it.message}" }
             busy = false
         }
     }
 
+    val engineStatus by app.engineStatus.collectAsState()
+    val engineError by app.engineError.collectAsState()
+    val sttStatus by app.sttStatus.collectAsState()
+    val ttsStatus by app.ttsStatus.collectAsState()
+
     Column(
-        modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        val engineStatus by app.engineStatus.collectAsState()
-        val engineError by app.engineError.collectAsState()
-        Text("Provider library", style = MaterialTheme.typography.titleMedium)
+        // ====== VLM (Nexa NPU) ======
+        Text("VLM — on-device", style = MaterialTheme.typography.titleMedium)
         Text("Engine: ${app.engine().backendTag}  ($engineStatus)")
         engineError?.let { Text("ENGINE ERROR: $it") }
         Text(status)
@@ -121,15 +122,12 @@ fun RouterPanel(modifier: Modifier = Modifier) {
                 else LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
         }
-
-        // Two rows so the 4th button doesn't get clipped off the screen edge.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(modifier = Modifier.weight(1f), enabled = !busy, onClick = {
                 busy = true; line = "Starting HF download..."; progressFrac = null
                 scope.launch {
                     EdgeModelDownloader.download(ctx) { p ->
-                        line = "[${p.fileIndex}/${p.fileCount}] ${p.currentFile}"
-                        progressFrac = p.fraction
+                        line = "[${p.fileIndex}/${p.fileCount}] ${p.currentFile}"; progressFrac = p.fraction
                     }.onSuccess {
                         refresh(); line = "Download complete. Loading engine..."
                         app.reloadEngine(); line = "Engine ready: ${app.engine().backendTag}"
@@ -137,7 +135,6 @@ fun RouterPanel(modifier: Modifier = Modifier) {
                     busy = false
                 }
             }) { Text("HF") }
-
             OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy, onClick = {
                 @Suppress("UNCHECKED_CAST")
                 (pickFolder as androidx.activity.result.ActivityResultLauncher<android.net.Uri?>).launch(null)
@@ -149,10 +146,72 @@ fun RouterPanel(modifier: Modifier = Modifier) {
         }
 
         Text("Checklist (${checklist.count { it.second }}/${checklist.size}):", style = MaterialTheme.typography.titleSmall)
-        checklist.forEach { (name, present) ->
-            Text((if (present) "  v  " else "  -  ") + name)
-        }
-        Text(" ")
+        checklist.forEach { (name, present) -> Text((if (present) "  v  " else "  -  ") + name) }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+        // ====== Moonshine STT ======
+        Text("STT — Moonshine", style = MaterialTheme.typography.titleMedium)
+        Text("Status: $sttStatus")
+        OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
+            busy = true; line = "Downloading Moonshine (~67 MB)..."
+            scope.launch {
+                MoonshineDownloader.download(ctx) { p ->
+                    line = "[stt ${p.fileIndex}/${p.fileCount}] ${p.currentFile}"; progressFrac = p.fraction
+                }.onSuccess { app.tryLoadStt(); line = "Moonshine: ${app.sttStatus.value}" }
+                    .onFailure { line = "Moonshine download failed: ${it.message}" }
+                busy = false
+            }
+        }) { Text("Download Moonshine STT") }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+        // ====== Kokoro TTS ======
+        Text("TTS — Kokoro (am_adam)", style = MaterialTheme.typography.titleMedium)
+        Text("Status: $ttsStatus")
+        OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
+            busy = true; line = "Downloading Kokoro (~87 MB)..."
+            scope.launch {
+                KokoroDownloader.download(ctx) { p ->
+                    line = "[tts ${p.fileIndex}/${p.fileCount}] ${p.currentFile}"; progressFrac = p.fraction
+                }.onSuccess { app.tryLoadTts(); line = "Kokoro: ${app.ttsStatus.value}" }
+                    .onFailure { line = "Kokoro download failed: ${it.message}" }
+                busy = false
+            }
+        }) { Text("Download Kokoro TTS") }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+        // ====== Cloud fallback keys ======
+        Text("Cloud (failover)", style = MaterialTheme.typography.titleMedium)
+        KeyRow(app, "OpenRouter API key", "openrouter.key")
+        KeyRow(app, "Hugging Face token (optional)", "hf.token")
+        KeyRow(app, "Nexa coin (optional)", "nexa.token")
+        Text(
+            "When VLM isn't loaded, Chat routes to OpenRouter using these credentials. " +
+                "Default model: qwen/qwen-2.5-72b-instruct with claude-3.5-sonnet + gemini-2.0-flash fallbacks.",
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun KeyRow(app: HorizonsApplication, label: String, key: String) {
+    var value by remember { mutableStateOf(app.credentials.get(key) ?: "") }
+    var saved by remember { mutableStateOf(app.credentials.has(key)) }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        OutlinedTextField(
+            modifier = Modifier.weight(1f),
+            value = value,
+            onValueChange = { value = it; saved = false },
+            label = { Text(label) },
+            singleLine = true
+        )
+        TextButton(enabled = value.isNotBlank() && !saved, onClick = {
+            app.credentials.put(key, value.trim()); saved = true
+        }) { Text(if (saved) "saved" else "save") }
     }
 }
 
@@ -162,7 +221,6 @@ private fun currentChecklist(ctx: android.content.Context): List<Pair<String, Bo
         EdgeModelDownloader.MODEL_DIR_NAME
     )
     return EdgeModelImporter.WANTED.sorted().map { name ->
-        // Accept 0-byte files as present (HF ships config.json that way).
         name to java.io.File(dir, name).isFile
     }
 }
