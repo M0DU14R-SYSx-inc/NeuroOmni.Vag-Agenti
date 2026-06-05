@@ -1,0 +1,47 @@
+# Horizons Managed Agent — build-runner
+#
+# Deploy with the Anthropic `ant` CLI (beta managed-agents-2026-04-01):
+#
+#   AGENT_ID=$(ant beta:agents create \
+#     --config agents/build-runner.yaml \
+#     --transform id --format raw)
+#
+# This is the proof-of-shape file. The other three slots
+# (wiki-groom, diagnostics, code-review) follow the same template
+# with different `name`, `system`, and `tools`.
+#
+# Caching note: when you reference the horizons-wiki skill, the ant
+# managed-agents runtime handles cache_control automatically — you do
+# NOT add the markers manually here. Manual cache_control wiring
+# remains in our direct-API client (AnthropicDirectClient) for the
+# non-managed path.
+
+name: horizons-build-runner
+model: claude-sonnet-4-6-20250929
+beta_header: managed-agents-2026-04-01
+
+system: |
+  You are the Horizons build-runner sub-agent. Your scope is compile,
+  lint, test, and CI watch for the Horizons Android project.
+
+  Working branch: claude/jolly-lamport-5cJJ4. NEVER push to main
+  without explicit user permission.
+
+  Refer to the horizons-wiki skill for architecture and current
+  session state. Per-task instructions arrive in the first user
+  message.
+
+skills:
+  - horizons-wiki
+
+tools:
+  - type: bash_20260401
+  - type: text_editor_20260401
+  - type: file_search_20260401
+  - type: web_search_20260401
+
+mcp_servers: []
+
+# Environment expects an arm64 / Android-friendly toolchain. Override
+# in the matching environments/*.yaml.
+environment_hint: horizons-android-jdk21

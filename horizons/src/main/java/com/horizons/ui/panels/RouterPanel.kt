@@ -103,6 +103,7 @@ fun RouterPanel(modifier: Modifier = Modifier) {
     val engineError by app.engineError.collectAsState()
     val sttStatus by app.sttStatus.collectAsState()
     val ttsStatus by app.ttsStatus.collectAsState()
+    val cacheStatus by app.cacheStatus.collectAsState()
 
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -192,6 +193,27 @@ fun RouterPanel(modifier: Modifier = Modifier) {
                 "Default model: qwen/qwen-2.5-72b-instruct with claude-3.5-sonnet + gemini-2.0-flash fallbacks.",
             style = MaterialTheme.typography.bodySmall
         )
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+        // ====== Anthropic prompt cache (wiki prefix) ======
+        Text("Prompt cache (Anthropic)", style = MaterialTheme.typography.titleMedium)
+        KeyRow(app, "Anthropic API key", "anthropic.key")
+        Text("Cache: $cacheStatus", style = MaterialTheme.typography.bodyMedium)
+        Text(
+            "Pre-warm fires a 1-token Claude call with the CLAUDE_AT_HORIZONS.md " +
+                "wiki as the system block so the cache is written before any sub-agent " +
+                "fan-out. 1h TTL: write costs 2x, reads 0.1x. Verify via the status line.",
+            style = MaterialTheme.typography.bodySmall
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(modifier = Modifier.weight(1f), onClick = { app.preWarmAnthropic() }) {
+                Text("Pre-warm (1h)")
+            }
+            OutlinedButton(modifier = Modifier.weight(1f), onClick = {
+                app.preWarmAnthropic(com.horizons.provider.AnthropicDirectClient.CacheTtl.FIVE_MIN)
+            }) { Text("Pre-warm (5m)") }
+        }
 
         Spacer(Modifier.height(24.dp))
     }

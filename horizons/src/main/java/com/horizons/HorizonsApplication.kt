@@ -11,6 +11,7 @@ import com.horizons.model.MoonshineDownloader
 import com.horizons.model.MoonshineSttEngine
 import com.horizons.model.StubEdgeModel
 import com.horizons.orchestrator.Orchestrator
+import com.horizons.provider.AnthropicDirectClient
 import com.horizons.provider.CredentialStore
 import com.horizons.provider.ProviderLibrary
 import kotlinx.coroutines.CoroutineScope
@@ -66,6 +67,16 @@ class HorizonsApplication : Application() {
     val sttStatus: StateFlow<String> = _sttStatus.asStateFlow()
     private val _ttsStatus = MutableStateFlow<String>("not loaded")
     val ttsStatus: StateFlow<String> = _ttsStatus.asStateFlow()
+
+    /**
+     * Anthropic prompt-cache surface. Format: "idle" before any call,
+     * "warming…" while preWarm is in flight, then a snapshot string like
+     * "write 1234t" or "hit 1234t (read)" after a real call. Updated from
+     * [preWarmAnthropic] and intended to also be updated from the chat path
+     * after each Claude response by reading the client's lastUsage.
+     */
+    private val _cacheStatus = MutableStateFlow<String>("idle")
+    val cacheStatus: StateFlow<String> = _cacheStatus.asStateFlow()
 
     override fun onCreate() {
         super.onCreate()
@@ -137,6 +148,49 @@ class HorizonsApplication : Application() {
      * Safe to call multiple times — used at boot and after the user enters
      * a new token in Router panel.
      */
+    /**
+     * Fire a 1-token request against the Anthropic API with the wiki as the
+     * system prompt so the cache is written BEFORE any sub-agent fan-out.
+     * Per Anthropic docs the cache entry only becomes available after the
+     * first response begins — without this, parallel sub-agents all miss.
+     *
+     * Requires `anthropic.key` in CredentialStore. No-op (logs only) otherwise.
+     * Updates [cacheStatus] StateFlow so RouterPanel can surface state.
+     */
+    fun preWarmAnthropic(ttl: AnthropicDirectClient.CacheTtl = AnthropicDirectClient.CacheTtl.ONE_HOUR) {
+        if (credentials.get(AnthropicDirectClient.CRED_KEY).isNullOrBlank()) {
+            _cacheStatus.value = "no anthropic.key"
+            return
+        }
+        val prompt = wikiSystemPrompt
+        if (prompt.isBlank()) {
+            _cacheStatus.value = "wiki empty"
+            return
+        }
+        _cacheStatus.value = "warming…"
+        scope.launch {
+            runCatching {
+                val client = AnthropicDirectClient(
+                    credentials = credentials,
+                    systemPrompt = prompt,
+                    cacheTtl = ttl,
+                )
+                client.preWarm()
+                client.lastUsage
+            }.onSuccess { usage ->
+                _cacheStatus.value = when {
+                    usage == null -> "no usage returned"
+                    usage.isCacheHit -> "hit ${usage.cacheReadTokens}t (read)"
+                    usage.cacheCreationTokens > 0 -> "write ${usage.cacheCreationTokens}t (${ttl.apiValue})"
+                    else -> "no cache activity (prefix below threshold?)"
+                }
+            }.onFailure { t ->
+                _cacheStatus.value = "warm failed: ${t.javaClass.simpleName}: ${t.message}"
+                Log.w(TAG, "preWarmAnthropic failed", t)
+            }
+        }
+    }
+
     fun applyNexaToken() {
         val token = credentials.get("nexa.token")?.trim().orEmpty()
         runCatching {

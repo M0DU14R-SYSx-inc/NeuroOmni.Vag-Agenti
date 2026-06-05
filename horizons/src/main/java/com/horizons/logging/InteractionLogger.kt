@@ -79,6 +79,8 @@ class InteractionLogger(private val context: Context) {
         content: String,
         tokens: Int?,
         latencyMs: Long?,
+        cacheCreationTokens: Int? = null,
+        cacheReadTokens: Int? = null,
     ) {
         val obj = baseObject("response", sessionId).apply {
             put("backend", backend)
@@ -87,6 +89,8 @@ class InteractionLogger(private val context: Context) {
             put("tokens", tokens ?: JSONObject.NULL)
             put("latency_ms", latencyMs ?: JSONObject.NULL)
             put("error", JSONObject.NULL)
+            put("cache_creation_tokens", cacheCreationTokens ?: JSONObject.NULL)
+            put("cache_read_tokens", cacheReadTokens ?: JSONObject.NULL)
         }
         append(obj)
     }
