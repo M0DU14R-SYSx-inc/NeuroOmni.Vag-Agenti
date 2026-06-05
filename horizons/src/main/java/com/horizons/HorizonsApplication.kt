@@ -60,8 +60,10 @@ class HorizonsApplication : Application() {
         }
         _engineStatus.value = "loading ${next.backendTag}..."
         runCatching { next.load() }.onFailure { t ->
-            val listing = (next as? com.horizons.model.NexaVlmEngine)?.lastFolderListing ?: ""
-            _engineError.value = "${next.backendTag} load: ${t.javaClass.simpleName}: ${t.message}\nFolder:\n$listing"
+            val n = next as? com.horizons.model.NexaVlmEngine
+            val listing = n?.lastFolderListing ?: ""
+            val initMsg = n?.lastInitMessage ?: ""
+            _engineError.value = "${next.backendTag} load: ${t.javaClass.simpleName}: ${t.message}\nInit: $initMsg\nFolder:\n$listing"
             Log.e(TAG, "engine load failed; falling back to stub", t)
             edge = StubEdgeModel()
             _engineStatus.value = "fell back to stub (load)"

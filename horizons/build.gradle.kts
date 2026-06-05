@@ -109,25 +109,10 @@ dependencies {
     }
 }
 
-// Strip unused Hexagon HTP version directories from the merged assets.
-// Razr Ultra = Snapdragon 8 Elite = HTP v79. The Nexa AAR ships v79
-// (under htp-files/), v81 (Snapdragon 8 Gen 5) and v85 (future) too —
-// each ~140-160 MB. Dropping the two we don't run saves ~300 MB.
-afterEvaluate {
-    val stripDirs = listOf("npu/htp-files-v81", "npu/htp-files-v85")
-    tasks.matching { it.name.matches(Regex("merge[A-Z]\\w*Assets")) }.configureEach {
-        doLast {
-            outputs.files.forEach { dir ->
-                if (dir.isDirectory) {
-                    stripDirs.forEach { sub ->
-                        val target = File(dir, sub)
-                        if (target.exists()) {
-                            println("[stripAarAssets] removing $target")
-                            target.deleteRecursively()
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+// NOTE: previously stripped npu/htp-files-v81 and v85 to save ~300 MB
+// of APK size. THAT BROKE SDK INIT — decompiled NexaSdk.init() shows
+// it iterates HTP_ASSET_DIRS = [htp-files, htp-files-v81, htp-files-v85]
+// at startup and tries to extract each, regardless of device HTP version.
+// Removing them leaves the SDK half-initialized → Model create() returns
+// garbage error codes. Strip reverted; APK is back to ~787 MB.
+// TODO: tackle size via ABI splits or feature module download later.
