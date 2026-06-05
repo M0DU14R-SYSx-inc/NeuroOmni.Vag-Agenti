@@ -28,6 +28,20 @@ class NexaVlmEngine(
 
     override suspend fun load() {
         NexaSdk.getInstance().init(context)
+        // Touch an empty config.json if missing — HF ships it as 0 bytes
+        // and Chrome occasionally skips 0-byte files. SDK may require the
+        // file's presence regardless of size.
+        runCatching {
+            val cfg = java.io.File(modelFolder, "config.json")
+            if (!cfg.exists()) cfg.createNewFile()
+        }
+        // Log the model folder contents so engine errors include real file list.
+        val listing = runCatching {
+            java.io.File(modelFolder).listFiles()?.joinToString(", ") {
+                "${it.name}(${it.length()})"
+            } ?: "no listing"
+        }.getOrElse { "listing failed: ${it.message}" }
+        Log.i(TAG, "Loading from $modelFolder; files=[$listing]")
         // Per Nexa Android docs: model_path is a FILE PATH pointing at files-1-1.nexa,
         // not the folder. The SDK reads nexa.manifest + the shards alongside it.
         val entry = java.io.File(modelFolder, "files-1-1.nexa").absolutePath
