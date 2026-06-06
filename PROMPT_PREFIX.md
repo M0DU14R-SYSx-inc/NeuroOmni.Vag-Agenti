@@ -34,6 +34,107 @@ re-write at 1.25x (5min TTL) or 2x (1hr TTL).
     `VertexClient.lastUsage` expose `cacheCreationTokens` and
     `cacheReadTokens`. `isCacheHit` returns true when reads > 0.
 
+## LIGHTHOUSE DOC — supersedes prior pivots (read first)
+
+A lighthouse reference doc (deep-dive analysis from the horse's mouth)
+arrived end-of-session and **overturns** the earlier termux-api STT/TTS
+pivot. The correct locked stack is below. Treat anything in
+this file or `CLAUDE_AT_HORIZONS.md` that contradicts it as STALE.
+
+### Locked stack (verified by lighthouse against reference impl `mjnong/chatapp-v2`)
+
+| Layer | Model | Runtime | Hardware | EP config |
+|-------|-------|---------|----------|-----------|
+| VLM | OmniNeural-4B | Nexa SDK 0.0.24 | Hexagon NPU v79 | `plugin_id = "npu"` (Nexa native, NOT ONNX) |
+| STT | Moonshine | ONNX Runtime android | CPU big-cores | `addCpu()`, `setIntraOpNumThreads(2)`, `setInterOpNumThreads(1)` |
+| TTS | Kokoro (am_adam) | ONNX Runtime android | Adreno GPU | `addNnapi()` (delegates to QNN GPU on Snapdragon) |
+
+The Termux-API clients (`TermuxTtsClient`, `TermuxSttClient`)
+committed in `ef2f1ba` STAY as emergency-fallback **only** —
+NOT primary. Primary stack is Kokoro QNN-GPU + Moonshine CPU.
+Lighthouse rationale: Adreno GPU and Hexagon NPU are separate
+silicon → Kokoro on GPU does NOT contend with OmniNeural NPU.
+Termux system TTS gives up Kokoro voice quality and is a regression.
+
+### Non-negotiable Gradle flags (verified present)
+
+```kotlin
+minSdk = 27
+ndk { abiFilters += "arm64-v8a" }
+packagingOptions {
+    jniLibs.useLegacyPackaging = true
+    pickFirsts += setOf(
+        "**/libonnxruntime.so",         // Nexa SDK ships this too — must pickFirst
+        "**/libonnxruntime4j_jni.so"
+    )
+}
+// AndroidManifest:
+//   android:largeHeap="true"
+//   android:requestLegacyExternalStorage="true"
+```
+
+### Nexa model_path (critical correction)
+
+Lighthouse explicitly: Nexa SDK needs the **file path** to
+`files-1-1.nexa`, NOT the folder. Commits show flip-flop;
+verify the final state of `NexaVlmEngine.kt` model_path points to
+the .nexa file. If folder, fix or have the folder-walker resolve
+the .nexa explicitly. Target: `/data/data/<pkg>/files/models/OmniNeural-4B/files-1-1.nexa`.
+
+### ORT EP rules (anti-foot-guns)
+
+  - **Do NOT** `addNnapi()` or `addQnn()` on the Moonshine STT
+    session — that steals the NPU lock from Nexa.
+  - **Do NOT** try `addQnn()` directly in ORT-android Maven —
+    method doesn't exist. Use `addNnapi()` and let the Snapdragon
+    driver delegate to QNN GPU.
+  - Verify Kokoro session at runtime: read `session.sessionOptions.executionProviders`.
+    If it contains `CPUExecutionProvider` and NOT `NNAPIExecutionProvider`,
+    QNN init failed and Kokoro is fighting Moonshine for CPU.
+
+### VAD layer — missing
+
+Lighthouse flags: no Voice Activity Detection in front of
+Moonshine = burn CPU transcribing silence. Add **Silero VAD v5**
+(small ONNX) before Moonshine. Open task.
+
+### 9 weak links flagged by lighthouse (queue)
+
+  1. Key stored as String in memory (Retrofit headers) — switch to
+     OkHttp Interceptor pulling from EncryptedSharedPreferences
+     at request time.
+  2. OAuth refresh-token expiry for Cloud Shell — needs refresh loop.
+  3. Model router burns cloud credits on simple queries — add
+     confidence threshold + complexity classifier before fallback.
+  4. WebSocket 10s timeout vs cloud 30s+ inference — bump to 60s,
+     ping/pong every 5s, stream partial tokens.
+  5. API key validation missing — ping `/models` before saving.
+  6. NPU thermal throttle → permanent cloud fallback — retry
+     with 30s backoff, track thermal state.
+  7. Credential scope confusion (AI Studio key in Vertex slot,
+     etc.) — lock endpoint↔key-type pairs in UI.
+  8. Cloud Shell 20-min idle / 12-hr hard limit — treat shell as
+     stateless, no `cd`/env assumptions.
+  9. Network state not checked before cloud — `ConnectivityManager`
+     guard, skip cloud entirely if offline.
+
+### Reference repo
+
+`mjnong/chatapp-v2` — has Kokoro ONNX + NPU pipeline working on
+Snapdragon 8 Elite. Use as a code-shape reference for any session
+options or model-loading questions.
+
+### Cloud architecture (per lighthouse)
+
+OpenRouter + Vertex + AI Studio + Cloud Shell all live in
+**Watchdog**, not Horizons. Horizons holds the UI + Model Library
+CRUD. Watchdog holds the keys, the router, and all network IO.
+WebSocket `ws://127.0.0.1:47821` is IPC. ProviderLibrary today is
+JSON-file based; lighthouse spec is Room/SQLite with `ModelConfig`
++ `ApiKey` tables. Migration to Room is a future task, not blocking.
+
+---
+
 ## ARCHITECTURE PIVOT — Skills become primary; STT/TTS via termux-api
 
 Two structural changes locked at end-of-session:
