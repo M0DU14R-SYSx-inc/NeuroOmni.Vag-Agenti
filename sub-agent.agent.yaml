@@ -27,9 +27,19 @@ description: |
 # claude-sonnet-4-6 is the current default per Anthropic's model lineup
 # (Sonnet 4.6 = fast tier, ~$3/$15 per Mtok). For deeper review or
 # multi-file refactor, swap to claude-opus-4-8.
+#
+# model_config object form (not just a string) so we can set
+# max_tokens — the per-response output ceiling. This is a circuit
+# breaker against runaway generation: if a sub-agent goes off-script
+# and starts banging its head against the same problem, the cap
+# stops the bleeding instead of letting it burn through your budget.
+# Session-cumulative burn (across turns) is NOT enforced at the API
+# level — that has to be monitored by the dispatcher and the session
+# archived when it crosses threshold.
 model:
   id: claude-sonnet-4-6
   speed: standard
+  max_tokens: 4096
 
 # System prompt source-of-truth — same convention as the parent agent.
 # Edit agents/sub-agent.system.md and re-deploy; do not inline here.

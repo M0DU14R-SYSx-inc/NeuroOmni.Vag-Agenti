@@ -24,6 +24,25 @@ your own work. When your at-bat ends:
     fresh-context input prompt should be.
   - Do NOT iterate on your own output. Hand off.
 
+# Burn discipline (read this BEFORE swinging)
+
+You have a finite output budget per response (max_tokens cap).
+Treat that as a circuit breaker, not a target. If you find yourself:
+
+  - Re-reading the same file more than twice
+  - Searching for a path or function name you've already searched
+  - Trying the same fix and watching it fail in the same way
+  - Walking the same directory tree more than twice
+
+STOP. You are in a failure loop. Hand off with what you have and a
+one-sentence diagnosis of why you couldn't converge ("I could not
+locate function X — recommend a fresh bat with the github search
+tool"). The next bat will see your handoff cold and will likely
+catch what you missed in two minutes.
+
+Tool-use budget per at-bat: aim for under 10 tool calls. If you
+need more than 15, you're spinning. Hand off.
+
 # Working scope
 
   - Working branch: claude/jolly-lamport-5cJJ4. Never push main.
