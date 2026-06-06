@@ -1,5 +1,7 @@
 package com.horizons.ui.panels
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VolumeOff
@@ -33,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.horizons.HorizonsApplication
 import com.horizons.audio.MicCaptureController
+import com.horizons.screen.ScreenCaptureService
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
@@ -50,6 +54,23 @@ fun ChatPanel(modifier: Modifier = Modifier) {
     var autoSpeak by remember { mutableStateOf(true) }
     val listState = rememberLazyListState()
     val micState by app.micController.state.collectAsState()
+    val pendingImagePath by app.pendingImagePath.collectAsState()
+
+    val consentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val granted = app.screenshotCapture.onConsentResult(result.resultCode, result.data)
+        if (!granted) return@rememberLauncherForActivityResult
+        // FGS must be up BEFORE getMediaProjection (API 34+).
+        ScreenCaptureService.start(ctx, result.resultCode, result.data!!)
+        scope.launch {
+            // Small delay so FGS reaches foreground state before projection acquisition.
+            kotlinx.coroutines.delay(400)
+            app.screenshotCapture.captureToFile()
+                .onSuccess { f -> app.setPendingImagePath(f.absolutePath) }
+                .onFailure { /* swallow — indicator stays absent */ }
+        }
+    }
 
     LaunchedEffect(turns.size) {
         if (turns.isNotEmpty()) listState.animateScrollToItem(turns.size - 1)
@@ -57,13 +78,16 @@ fun ChatPanel(modifier: Modifier = Modifier) {
 
     fun send(prompt: String) {
         if (prompt.isBlank()) return
+        val stagedImage = app.pendingImagePath.value
         turns += ChatTurn("you", prompt)
         val replyIdx = turns.size
         turns += ChatTurn("...", "")
         busy = true
+        // Consume the staged screenshot once — the next send is a clean text turn.
+        app.setPendingImagePath(null)
         scope.launch {
             var acc = ""
-            app.orchestrator.stream(prompt)
+            app.orchestrator.stream(prompt, imagePath = stagedImage)
                 .catch { e ->
                     turns[replyIdx] = ChatTurn("error", "${e.javaClass.simpleName}: ${e.message}")
                 }
@@ -106,6 +130,18 @@ fun ChatPanel(modifier: Modifier = Modifier) {
                     if (recording) "Stop" else "Mic"
                 )
             }
+            IconButton(
+                enabled = !busy,
+                onClick = {
+                    // If consent already persisted this process, captureToFile() will succeed
+                    // without re-prompting. Easiest path: always launch the consent intent;
+                    // Android's MediaProjection requires fresh consent per capture session
+                    // on API 34+, so caching the grant client-side is moot.
+                    consentLauncher.launch(app.screenshotCapture.prepareConsentIntent())
+                }
+            ) {
+                Icon(Icons.Filled.CameraAlt, "Screenshot")
+            }
             IconButton(onClick = {
                 autoSpeak = !autoSpeak
                 if (!autoSpeak) app.speaker.stop()
@@ -126,6 +162,9 @@ fun ChatPanel(modifier: Modifier = Modifier) {
                 enabled = input.isNotBlank() && !busy,
                 onClick = { val p = input.trim(); input = ""; send(p) }
             ) { Text(if (busy) "..." else "Send") }
+        }
+        if (pendingImagePath != null) {
+            Text("screenshot pending — will be attached to next send")
         }
         if (micState is MicCaptureController.State.Error) {
             Text("mic: ${(micState as MicCaptureController.State.Error).msg}")

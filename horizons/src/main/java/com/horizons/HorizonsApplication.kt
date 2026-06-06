@@ -17,6 +17,7 @@ import com.horizons.orchestrator.Orchestrator
 import com.horizons.provider.AnthropicDirectClient
 import com.horizons.provider.CredentialStore
 import com.horizons.provider.ProviderLibrary
+import com.horizons.screen.ScreenshotCapture
 import com.horizons.tasker.TaskerBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -78,6 +79,16 @@ class HorizonsApplication : Application() {
     }
     val speaker: SpeakerPlayer by lazy { SpeakerPlayer { kokoro } }
     val tasker: TaskerBridge by lazy { TaskerBridge(this) }
+    val screenshotCapture: ScreenshotCapture by lazy { ScreenshotCapture(this) }
+
+    /**
+     * Absolute path to a screenshot the user staged via ChatPanel's camera
+     * button. Consumed (and cleared) by the next send. Threaded into
+     * Orchestrator.stream as `imagePath` so the VLM can see the screen.
+     */
+    private val _pendingImagePath = MutableStateFlow<String?>(null)
+    val pendingImagePath: StateFlow<String?> = _pendingImagePath.asStateFlow()
+    fun setPendingImagePath(path: String?) { _pendingImagePath.value = path }
 
     /**
      * Anthropic prompt-cache surface. Format: "idle" before any call,
