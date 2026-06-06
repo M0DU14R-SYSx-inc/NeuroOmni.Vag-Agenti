@@ -7,11 +7,28 @@ Before any code change, read in order from the GitHub repo
 
   1. HANDOFF.md
   2. CLAUDE_AT_HORIZONS.md
-  3. PROMPT_PREFIX.md
+  3. PROMPT_PREFIX.md  ← READ THE "ARCHITECTURE PIVOT" SECTION FIRST
   4. SETUP_PROMPT.md
 
 Quote one load-bearing decision from each before proceeding. If any
 file is missing, STOP and report.
+
+# Architectural correction (read this BEFORE the wiki)
+
+The wiki (`CLAUDE_AT_HORIZONS.md`) still says "Moonshine via
+onnxruntime-android" and "Kokoro via onnxruntime-android q8f16."
+That is OUTDATED. The locked path is **termux-api shell-out**:
+`termux-tts-speak` for output, `termux-speech-to-text` for input.
+The wrapper Kotlin clients are already in the tree at
+`horizons/src/main/java/com/horizons/audio/TermuxTtsClient.kt` and
+`TermuxSttClient.kt`. Wire ChatPanel to use them. Gut the ORT
+stubs (`MoonshineSttEngine.kt`, `KokoroTtsEngine.kt`) once the
+swap is verified end-to-end.
+
+Skills architecture is also primary going forward: every agent gets
+its own `skills/<agent-name>/SKILL.md` bundling memory + runtime +
+tools + tasks customized for that agent's workflow. The wiki stays
+as human source-of-truth; the Skill is the runtime memory layer.
 
 # At-bat rules (non-negotiable)
 

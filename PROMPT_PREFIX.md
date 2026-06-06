@@ -34,14 +34,61 @@ re-write at 1.25x (5min TTL) or 2x (1hr TTL).
     `VertexClient.lastUsage` expose `cacheCreationTokens` and
     `cacheReadTokens`. `isCacheHit` returns true when reads > 0.
 
-## ARCHITECTURE CORRECTION — STT/TTS pivot to Termux
+## ARCHITECTURE PIVOT — Skills become primary; STT/TTS via termux-api
 
-The earlier wiki entry "Moonshine via onnxruntime-android" was wrong.
-**Locked decision:** Moonshine STT and Kokoro TTS both run via Termux
-on the device, NOT as Android-process ORT sessions. Horizons app
-shells out via `TermuxBridge` (`com.termux.RUN_COMMAND`) to invoke
-Python scripts that own the model + inference. This is the slam-dunk
-path — Python ML tooling is mature, no JNI worries, easy to iterate.
+Two structural changes locked at end-of-session:
+
+### Skills architecture is primary going forward
+
+Every agent (Horizons sub-agents + the main NeuralMash builder) will
+use Anthropic Skills (SKILL.md frontmatter + Markdown) as the primary
+memory/context/tools/tasks bundle, customized per agent + workflow.
+The wiki (`CLAUDE_AT_HORIZONS.md`) and rolling prefix (this file) stay
+as source-of-truth for humans, but the runtime memory layer for each
+agent is its own Skill folder under `skills/<agent-name>/SKILL.md`.
+
+This means:
+  - Each agent gets its own `skills/<name>/SKILL.md` (eventually).
+  - The system prompt references the Skill by name; the wiki contents
+    get inlined or referenced from inside the Skill.
+  - Skills are interoperable across Claude Code, Codex, Cursor, the
+    managed-agents runtime. Vendor-portable.
+  - First step: keep using `skills/horizons-wiki/SKILL.md` for the
+    NeuralMash builder. Future agents get their own folders.
+
+### STT/TTS — termux-api shell-out (NOT Python+ONNX)
+
+Earlier this session I documented "Python + onnxruntime in Termux."
+That was wrong. **Correct path: `termux-api` add-on package.**
+`termux-tts-speak` for output (Android system TTS), and
+`termux-speech-to-text` for input (Android system speech recognizer).
+Zero on-device model overhead, zero Python ML stack, slam-dunk easy.
+
+Trade-off: voice quality is system default (not Kokoro am_adam), and
+STT is online (Google Speech) so not strictly on-device. Acceptable
+v1; can swap to on-device whisper.cpp later if needed.
+
+Code staged this session:
+  - `horizons/src/main/java/com/horizons/audio/TermuxTtsClient.kt` —
+    `speak(text): Result<Unit>` wrapping `termux-tts-speak`.
+  - `horizons/src/main/java/com/horizons/audio/TermuxSttClient.kt` —
+    `listen(): Result<String>` wrapping `termux-speech-to-text`.
+  - `HorizonsApplication.termuxTts` and `.termuxStt` lazy fields.
+
+Required on-device:
+  - Termux installed (F-Droid build).
+  - `pkg install termux-api`.
+  - Termux:API companion app.
+  - `allow-external-apps=true` in `~/.termux/termux.properties`.
+
+Next-session rewire (NOT done tonight, queued):
+  - ChatPanel mic IconButton: replace `app.micController.toggle()`
+    call with `app.termuxStt.listen()`; on success, send(text).
+  - ChatPanel auto-speak: replace `app.speaker.speak(acc)` with
+    `app.termuxTts.speak(acc)`.
+  - Once the above is wired and tested, gut the ORT stubs:
+    `MoonshineSttEngine.kt`, `KokoroTtsEngine.kt`, their downloaders,
+    and the `onnxruntime-android` Gradle dep can all come out.
 
 What this means concretely:
 
