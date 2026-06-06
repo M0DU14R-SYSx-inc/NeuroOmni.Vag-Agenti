@@ -50,7 +50,8 @@ class AudioRecorder(private val context: Context) {
 
     fun isRecording(): Boolean = running.get()
 
-    @Synchronized
+    // Double-start guard: AtomicBoolean `running` below provides the mutual
+    // exclusion. (Was @Synchronized but Kotlin doesn't allow that on suspend.)
     suspend fun start(): Result<Unit> = withContext(Dispatchers.IO) {
         if (running.get()) {
             return@withContext Result.failure(IllegalStateException("AudioRecorder already started"))
@@ -144,7 +145,6 @@ class AudioRecorder(private val context: Context) {
         Result.success(Unit)
     }
 
-    @Synchronized
     suspend fun stop(): Result<ShortArray> {
         if (!running.get() && recorder == null) {
             return Result.failure(IllegalStateException("AudioRecorder not started"))

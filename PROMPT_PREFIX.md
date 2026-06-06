@@ -36,33 +36,73 @@ re-write at 1.25x (5min TTL) or 2x (1hr TTL).
 
 ## Session state — current as of latest commit
 
-Today's wins (2026-06-05):
+Tonight's wins (2026-06-05 → 2026-06-06):
 
-  - `AnthropicDirectClient` rewritten with `systemPrompt` parameter,
-    `cache_control: ephemeral` markers, `lastUsage` exposure, and a
-    `preWarm()` suspend function.
-  - `VertexClient` (anthropic publisher) gained the same caching
-    surface so Claude-on-Vertex inherits the strategy.
-  - `CLAUDE_AT_HORIZONS.md` bundled into `horizons/src/main/assets/` so
-    it ships in the APK as the static prefix source-of-truth.
-  - `HorizonsApplication.wikiSystemPrompt` lazy-loads the asset and
-    feeds it into the orchestrator via `systemPromptSupplier`.
-  - `Orchestrator` gained `systemPromptSupplier: () -> String` and
-    threads it into `ProviderFactory.build`. Pre-existing constructor
-    mismatch with `ProviderLibrary` is fixed.
-  - `ProviderFactory.buildAnthropic` and `buildVertex(anthropic)` now
-    inject the system prompt; Gemini path left untouched (Google uses
-    implicit server-side caching, no breakpoint to wire).
+Code shipped to `claude/jolly-lamport-5cJJ4`:
+
+  - `AnthropicDirectClient` with `systemPrompt`, `cache_control: ephemeral`,
+    `lastUsage` (cacheCreation/cacheRead tokens), and `preWarm()`.
+  - `VertexClient` (anthropic publisher) gained the same caching surface.
+  - `CLAUDE_AT_HORIZONS.md` bundled into `horizons/src/main/assets/`.
+  - `HorizonsApplication.wikiSystemPrompt` lazy-loads the asset.
+  - `HorizonsApplication.preWarmAnthropic()` + `cacheStatus` StateFlow
+    (states: idle, warming…, `write Nt (1h)`, `hit Nt (read)`, errors).
+  - `Orchestrator` takes `systemPromptSupplier: () -> String` and threads
+    it through `ProviderFactory.build`. Pre-existing ctor mismatch fixed.
+  - `ProviderFactory` injects systemPrompt into Anthropic + Vertex/anthropic.
+  - `InteractionLogger.logResponse` schema extended with
+    `cache_creation_tokens` / `cache_read_tokens` JSONL fields.
+  - `RouterPanel` got: Anthropic API key row, Pre-warm (1h) / Pre-warm (5m)
+    buttons, live cache status line.
+  - `AudioRecorder.kt`: removed `@Synchronized` on suspend funs that was
+    failing CI (AtomicBoolean `running` is the actual guard).
+
+Cloud agent (Anthropic managed-agents 2026-04-01):
+
+  - Agent ID `agent_01RaU3nbhVGcFi9ZRcCinT9r` is at **v6**.
+  - System prompt source: `agents/neuralmash-builder.system.md`.
+    Edit it, then `ant beta:agents update --version <N>` against piped YAML
+    `system: "@file://agents/neuralmash-builder.system.md"`.
+  - MCPs stripped (github/drive/bigquery were unauthenticated; re-add once
+    a vault is wired).
+  - Built-in `agent_toolset_20260401` retained.
+  - Environment: `env_01Srnj2osSiRfd1AGBaxDoVH` (`neuralmash-edge-moe-env`,
+    unrestricted networking, $0.08/hr active).
+  - Pre/post manifest snapshots in `agents/.snapshots/`.
+
+Verified cache behaviour (Anthropic platform):
+
+  - 2-turn session: turn 1 wrote 6956t; turn 2 read 6956t (0.1x cost).
+  - Cross-session: brand-new session on same agent hit 3382t on first
+    turn (server-side prefix cache survives between sessions).
+  - Managed-agents service defaults to `ephemeral_5m` cache tier, NOT
+    `ephemeral_1h`. Override only matters for our direct API path; the
+    managed-agents path is platform-managed.
+
+New artifacts in repo root:
+
+  - `skills/horizons-wiki/SKILL.md` — open SKILL.md standard wrapper.
+  - `agents/build-runner.yaml` — managed-agents YAML stub (slot 1).
+  - `agents/neuralmash-builder.system.md` — source-of-truth for deployed
+    agent's system prompt.
+  - `agents/.snapshots/` — pre/post YAML snapshots.
 
 What still needs to happen next:
 
-  - Pre-warm trigger choice (auto-on-boot vs Router button vs lazy).
-  - Cache hit/miss surface in Diagnostics panel using `lastUsage`.
-  - `InteractionLogger` schema extended with cache fields so every
-    Claude response logs cache_creation / cache_read counts.
-  - Method 2 (compile/export workflow): an end-of-session agent that
+  - **Rotate the Anthropic API key** leaked earlier in chat (still live).
+  - Custom MCP design (long-term: hosted on Cloud Run, OAuth out to GCP,
+    bridges Horizons ↔ console; deferred until awake-planning session).
+  - Vault wiring on Anthropic console if managed-agent MCPs are wanted
+    back (github/drive/bigquery).
+  - Sub-agent slots 2/3/4 (wiki-groom, diagnostics, code-review) — only
+    slot 1 has YAML; the others are blank.
+  - Surface `cacheStatus` in a real Diagnostics panel (issue #10).
+  - Wire `AnthropicDirectClient.lastUsage` into `InteractionLogger`
+    calls on each chat response (logger has the fields, no call site).
+  - Method 2 (compile/export workflow): end-of-session agent that
     grooms the conversation into a fresh `PROMPT_PREFIX.md` for next
-    boot. This is the "lost 15 min of context" mitigation.
+    boot.
+  - CI: bumping Node 20 actions to Node 24 before Sept 16 2026 deprecation.
 
 ## Sub-agent assignments (4-agent fan-out template)
 
