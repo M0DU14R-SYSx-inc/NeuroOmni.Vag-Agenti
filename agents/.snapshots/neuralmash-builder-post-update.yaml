@@ -2,16 +2,7 @@ archived_at: null
 created_at: "2026-06-05T20:56:16.927345Z"
 description: "Horizons / NeuralMash Edge MOE Builder for Motorola Razr Ultra 2025 — Kotlin Android, Hexagon NPU v79 via Nexa SDK, Moonshine STT, Kokoro TTS, OpenRouter failover, Vertex/Anthropic/AI Studio explicit-pick. Wiki: CLAUDE_AT_HORIZONS.md + PROMPT_PREFIX.md. Working branch: claude/jolly-lamport-5cJJ4."
 id: agent_01RaU3nbhVGcFi9ZRcCinT9r
-mcp_servers:
-  - name: github
-    type: url
-    url: https://api.githubcopilot.com/mcp/
-  - name: google-drive-drivemcp
-    type: url
-    url: https://drivemcp.googleapis.com/mcp/v1
-  - name: bigquery
-    type: url
-    url: https://bigquery.googleapis.com/mcp
+mcp_servers: []
 metadata:
   cloud_backend: GCP Vertex AI / AI Studio
   fallback: OpenRouter
@@ -111,27 +102,6 @@ tools:
       permission_policy:
         type: always_allow
     type: agent_toolset_20260401
-  - configs: []
-    default_config:
-      enabled: true
-      permission_policy:
-        type: always_allow
-    mcp_server_name: github
-    type: mcp_toolset
-  - configs: []
-    default_config:
-      enabled: true
-      permission_policy:
-        type: always_allow
-    mcp_server_name: google-drive-drivemcp
-    type: mcp_toolset
-  - configs: []
-    default_config:
-      enabled: true
-      permission_policy:
-        type: always_allow
-    mcp_server_name: bigquery
-    type: mcp_toolset
 type: agent
-updated_at: "2026-06-05T23:41:07.411588Z"
-version: 5
+updated_at: "2026-06-06T01:25:15.796943Z"
+version: 6
