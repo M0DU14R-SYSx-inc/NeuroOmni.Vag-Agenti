@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Tune
@@ -28,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.horizons.ui.panels.ChatPanel
+import com.horizons.ui.panels.DiagnosticsPanel
 import com.horizons.ui.panels.RouterPanel
 import com.horizons.ui.panels.TerminalPanel
 import com.horizons.ui.theme.HorizonsBackdrop
@@ -40,7 +42,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-enum class Panel(val label: String) { Chat("Chat"), Router("Router"), Terminal("Terminal"), Settings("Settings") }
+enum class Panel(val label: String) { Chat("Chat"), Router("Router"), Terminal("Terminal"), Diagnostics("Diag"), Settings("Settings") }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +81,12 @@ private fun Dashboard() {
                         label = { Text("Terminal") }
                     )
                     NavigationBarItem(
+                        selected = panel == Panel.Diagnostics,
+                        onClick = { panel = Panel.Diagnostics },
+                        icon = { Icon(Icons.Filled.MonitorHeart, "Diag") },
+                        label = { Text("Diag") }
+                    )
+                    NavigationBarItem(
                         selected = panel == Panel.Settings,
                         onClick = { panel = Panel.Settings },
                         icon = { Icon(Icons.Filled.Settings, "Settings") },
@@ -92,6 +100,7 @@ private fun Dashboard() {
                     Panel.Chat -> ChatPanel(Modifier.fillMaxSize())
                     Panel.Router -> RouterPanel(Modifier.fillMaxSize())
                     Panel.Terminal -> TerminalPanel(Modifier.fillMaxSize())
+                    Panel.Diagnostics -> DiagnosticsPanel(Modifier.fillMaxSize())
                     Panel.Settings -> Text("Settings — Phase 2/7 stubbed in", Modifier.padding(16.dp))
                 }
             }

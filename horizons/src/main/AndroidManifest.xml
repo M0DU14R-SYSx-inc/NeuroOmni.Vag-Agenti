@@ -28,9 +28,10 @@
     <!-- Outbound Termux bridge: fire shell commands via com.termux.RUN_COMMAND. -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 
-    <!-- Android 11+ package visibility for ComponentName(com.termux, ...) dispatch. -->
+    <!-- Android 11+ package visibility for outbound bridges. -->
     <queries>
         <package android:name="com.termux" />
+        <package android:name="net.dinglisch.android.taskerm" />
     </queries>
 
     <application

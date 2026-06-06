@@ -10,10 +10,14 @@ import com.horizons.model.KokoroTtsEngine
 import com.horizons.model.MoonshineDownloader
 import com.horizons.model.MoonshineSttEngine
 import com.horizons.model.StubEdgeModel
+import com.horizons.audio.AudioRecorder
+import com.horizons.audio.MicCaptureController
+import com.horizons.audio.SpeakerPlayer
 import com.horizons.orchestrator.Orchestrator
 import com.horizons.provider.AnthropicDirectClient
 import com.horizons.provider.CredentialStore
 import com.horizons.provider.ProviderLibrary
+import com.horizons.tasker.TaskerBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -67,6 +71,13 @@ class HorizonsApplication : Application() {
     val sttStatus: StateFlow<String> = _sttStatus.asStateFlow()
     private val _ttsStatus = MutableStateFlow<String>("not loaded")
     val ttsStatus: StateFlow<String> = _ttsStatus.asStateFlow()
+
+    val audioRecorder: AudioRecorder by lazy { AudioRecorder(this) }
+    val micController: MicCaptureController by lazy {
+        MicCaptureController(this, audioRecorder) { moonshine }
+    }
+    val speaker: SpeakerPlayer by lazy { SpeakerPlayer { kokoro } }
+    val tasker: TaskerBridge by lazy { TaskerBridge(this) }
 
     /**
      * Anthropic prompt-cache surface. Format: "idle" before any call,
