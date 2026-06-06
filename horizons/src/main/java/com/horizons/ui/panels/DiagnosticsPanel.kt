@@ -41,7 +41,7 @@ fun DiagnosticsPanel(modifier: Modifier = Modifier) {
     val cacheStatus by app.cacheStatus.collectAsState()
 
     // InteractionLogger is constructed per-call elsewhere; mirror that here.
-    val logger = remember(ctx) { com.horizons.logging.InteractionLogger(ctx) }
+    val logger = remember(ctx) { com.horizons.logging.InteractionLogger(ctx.applicationContext) }
     var refreshCounter by remember { mutableStateOf(0) }
     var lines by remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(refreshCounter) {
@@ -87,21 +87,16 @@ fun DiagnosticsPanel(modifier: Modifier = Modifier) {
             OutlinedButton(onClick = { refreshCounter++ }) { Text("Reload") }
             Text("(${lines.size} lines)", style = MaterialTheme.typography.bodySmall)
         }
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 320.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            if (lines.isEmpty()) {
-                Text("No log lines yet today.", style = MaterialTheme.typography.bodySmall)
-            } else {
-                lines.forEach { ln ->
-                    Text(
-                        ln,
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
-                    )
-                }
+        // Nested verticalScroll inside the outer scroll throws; render the log lines
+        // inline and rely on the outer scroll. Use a max-height window via take().
+        if (lines.isEmpty()) {
+            Text("No log lines yet today.", style = MaterialTheme.typography.bodySmall)
+        } else {
+            lines.takeLast(30).forEach { ln ->
+                Text(
+                    ln,
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+                )
             }
         }
 

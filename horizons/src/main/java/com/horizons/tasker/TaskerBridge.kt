@@ -14,6 +14,9 @@ class TaskerBridge(private val context: Context) {
         return try {
             val intent = Intent(ACTION_TASK).apply {
                 setPackage(TASKER_PACKAGE)
+                // version_number=1.1 is required — modern Tasker silently ignores
+                // ACTION_TASK broadcasts that omit it.
+                putExtra("version_number", "1.1")
                 putExtra("task_name", taskName)
                 putExtra("task_priority", 5)
                 params.forEachIndexed { i, p -> putExtra("par${i + 1}", p.second) }
@@ -32,6 +35,7 @@ class TaskerBridge(private val context: Context) {
         return try {
             val intent = Intent(ACTION_TASK).apply {
                 setPackage(TASKER_PACKAGE)
+                putExtra("version_number", "1.1")
                 putExtra("scene_name", sceneName)
             }
             context.sendBroadcast(intent)

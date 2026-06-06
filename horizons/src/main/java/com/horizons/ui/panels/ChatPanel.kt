@@ -67,9 +67,9 @@ fun ChatPanel(modifier: Modifier = Modifier) {
                 .catch { e ->
                     turns[replyIdx] = ChatTurn("error", "${e.javaClass.simpleName}: ${e.message}")
                 }
-                .onCompletion {
+                .onCompletion { cause ->
                     busy = false
-                    if (autoSpeak && acc.isNotBlank()) {
+                    if (cause == null && autoSpeak && acc.isNotBlank()) {
                         scope.launch { runCatching { app.speaker.speak(acc) } }
                     }
                 }
@@ -95,10 +95,7 @@ fun ChatPanel(modifier: Modifier = Modifier) {
                     scope.launch {
                         val r = app.micController.toggle()
                         val text = r.getOrNull()
-                        if (!text.isNullOrBlank()) {
-                            input = text
-                            send(text); input = ""
-                        }
+                        if (!text.isNullOrBlank()) send(text)
                     }
                 },
                 enabled = !busy && micState !is MicCaptureController.State.Transcribing

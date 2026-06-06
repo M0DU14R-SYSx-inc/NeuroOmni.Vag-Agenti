@@ -30,12 +30,10 @@ class SpeakerPlayer(
             return Result.failure(IllegalStateException("Kokoro not loaded"))
         }
         activeEngine = engine
-        _state.value = State.Synthesizing
+        // KokoroTtsEngine.speak() does synthesis + playback internally on its own
+        // AudioTrack and suspends until playback finishes.
+        _state.value = State.Speaking
         return try {
-            // KokoroTtsEngine.speak() does synthesis + playback internally on its own
-            // AudioTrack; we flip to Speaking once we hand off and rely on its suspend
-            // contract to return when playback finishes.
-            _state.value = State.Speaking
             engine.speak(text)
             _state.value = State.Idle
             Result.success(Unit)

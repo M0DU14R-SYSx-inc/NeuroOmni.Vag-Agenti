@@ -31,11 +31,18 @@ class MicCaptureController(
 
     fun isRecording(): Boolean = recorder.isRecording()
 
-    suspend fun toggle(): Result<String?> = mutex.withLock {
-        when (_state.value) {
-            is State.Idle, is State.Error -> startRecording()
-            is State.Recording -> stopAndTranscribe()
-            is State.Transcribing -> Result.failure(IllegalStateException("Transcription in progress"))
+    suspend fun toggle(): Result<String?> {
+        // Fast-path reject: a tap while transcribing must not queue behind the lock
+        // and then start a new recording the instant the transcribe finishes.
+        if (_state.value is State.Transcribing) {
+            return Result.failure(IllegalStateException("Transcription in progress"))
+        }
+        return mutex.withLock {
+            when (_state.value) {
+                is State.Idle, is State.Error -> startRecording()
+                is State.Recording -> stopAndTranscribe()
+                is State.Transcribing -> Result.failure(IllegalStateException("Transcription in progress"))
+            }
         }
     }
 

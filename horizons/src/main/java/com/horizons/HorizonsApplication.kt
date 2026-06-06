@@ -173,13 +173,12 @@ class HorizonsApplication : Application() {
             _cacheStatus.value = "no anthropic.key"
             return
         }
-        val prompt = wikiSystemPrompt
-        if (prompt.isBlank()) {
-            _cacheStatus.value = "wiki empty"
-            return
-        }
         _cacheStatus.value = "warming…"
         scope.launch {
+            // wikiSystemPrompt is a lazy { assets.open() } — defer the first read into
+            // this coroutine so we don't block the caller's thread (typically main).
+            val prompt = runCatching { wikiSystemPrompt }.getOrDefault("")
+            if (prompt.isBlank()) { _cacheStatus.value = "wiki empty"; return@launch }
             runCatching {
                 val client = AnthropicDirectClient(
                     credentials = credentials,
