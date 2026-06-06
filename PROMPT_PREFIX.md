@@ -83,14 +83,46 @@ the .nexa explicitly. Target: `/data/data/<pkg>/files/models/OmniNeural-4B/files
 
 ### ORT EP rules (anti-foot-guns)
 
+  - **`addCpu()` on Moonshine is FORCED EXCLUSION, not a default.**
+    Omitting it lets ORT-android auto-enable NNAPI on Snapdragon,
+    which steals the HTP/NPU context Nexa has the exclusive lock on
+    → NPU driver crashes / model-load failures / non-deterministic
+    hangs. Always register `addCpu()` explicitly on the Moonshine
+    session. Same applies to any other ONNX model NOT intended for
+    NPU/GPU.
   - **Do NOT** `addNnapi()` or `addQnn()` on the Moonshine STT
-    session — that steals the NPU lock from Nexa.
+    session — that steals NPU from Nexa or contends with Kokoro on
+    the GPU.
   - **Do NOT** try `addQnn()` directly in ORT-android Maven —
     method doesn't exist. Use `addNnapi()` and let the Snapdragon
     driver delegate to QNN GPU.
-  - Verify Kokoro session at runtime: read `session.sessionOptions.executionProviders`.
-    If it contains `CPUExecutionProvider` and NOT `NNAPIExecutionProvider`,
-    QNN init failed and Kokoro is fighting Moonshine for CPU.
+  - Each model = separate `OrtSession` with separate `SessionOptions`.
+    No per-model EP switching within one session.
+  - Verify Kokoro session at runtime: read
+    `session.sessionOptions.executionProviders`. If it contains
+    `CPUExecutionProvider` and NOT `NNAPIExecutionProvider`, QNN
+    init failed and Kokoro is fighting Moonshine for CPU.
+
+### Resource segregation map (Snapdragon 8 Elite)
+
+| Silicon | Tenant | Mechanism |
+|---------|--------|-----------|
+| Hexagon NPU | Nexa SDK / OmniNeural-4B | `plugin_id = "npu"` (native QNN/HTP, NOT ONNX) |
+| Adreno GPU | ORT / Kokoro TTS | `addNnapi(NnapiOptions { executionMode = PREFER_SUSTAINED_SPEED })` |
+| Kryo CPU (Oryon, 8 cores) | ORT / Moonshine STT | `addCpu()` + `setIntraOpNumThreads(2)` + `setInterOpNumThreads(1)` + `setMemoryPatternOptimization(true)` |
+
+Moonshine is ~5-layer LSTM-class encoder, RTF << 0.1 on Oryon cores.
+CPU is the correct silicon, not a fallback. The 6 remaining cores
+handle UI, WebSocket, Watchdog, and system.
+
+### Memory arena shrinkage (both sessions)
+
+```kotlin
+options.setMemoryPatternOptimization(true)
+// ORT 1.17+: options.addConfigEntry("session.memory_arena_shrinkage", "10")
+```
+Without this, the default arena grows forever and OOMs alongside
+the 4B context.
 
 ### VAD layer — missing
 
