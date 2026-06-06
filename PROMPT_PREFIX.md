@@ -34,6 +34,77 @@ re-write at 1.25x (5min TTL) or 2x (1hr TTL).
     `VertexClient.lastUsage` expose `cacheCreationTokens` and
     `cacheReadTokens`. `isCacheHit` returns true when reads > 0.
 
+## ARCHITECTURE CORRECTION — STT/TTS pivot to Termux
+
+The earlier wiki entry "Moonshine via onnxruntime-android" was wrong.
+**Locked decision:** Moonshine STT and Kokoro TTS both run via Termux
+on the device, NOT as Android-process ORT sessions. Horizons app
+shells out via `TermuxBridge` (`com.termux.RUN_COMMAND`) to invoke
+Python scripts that own the model + inference. This is the slam-dunk
+path — Python ML tooling is mature, no JNI worries, easy to iterate.
+
+What this means concretely:
+
+  - `horizons/.../model/MoonshineSttEngine.kt` and
+    `horizons/.../model/KokoroTtsEngine.kt` get replaced by thin
+    TermuxCli wrappers (call a script, read stdout, parse result).
+  - `onnxruntime-android` Gradle dep can come out of `horizons/build.gradle.kts`.
+  - The "download Moonshine" / "download Kokoro" buttons in
+    RouterPanel pivot to "install Termux deps" guidance + a status
+    check that pings Termux for the script's presence.
+  - Model files live in Termux's filesystem
+    (`~/.cache/horizons/moonshine/`, `~/.cache/horizons/kokoro/`),
+    not Android `filesDir`.
+
+## Next-session burn order
+
+1. **Rotate the leaked Anthropic API key** (still live; paste new one
+   into env vars panel or chat-then-rotate).
+2. **On-device foundation verify (text only):**
+   - Install latest APK from `latest-debug` release.
+   - Router → enter Nexa coin → HF download OmniNeural-4B → wait for 13/13.
+   - Chat panel: type a prompt, hit Send. Should answer on NPU.
+   - Diag panel: confirm engine = `ready: nexa`, no error.
+   - Report failures with Diag error string + folder listing.
+3. **Termux-side STT/TTS setup (one-time):**
+   - `pkg install python onnxruntime numpy` (or equivalent).
+   - Drop scripts: `~/horizons/moonshine_transcribe.py` (reads
+     PCM16 from stdin, prints transcript on stdout) and
+     `~/horizons/kokoro_speak.py` (reads text from stdin, plays
+     audio via `termux-tts-speak` or sox).
+   - Document exact commands in `docs/TERMUX_VOICE_SETUP.md`.
+4. **Android side — replace the ORT engines:**
+   - Gut `MoonshineSttEngine.kt` → new `MoonshineTermuxClient.kt`
+     that uses `TermuxBridge` to run the script + receives result
+     via the existing result-broadcast pattern.
+   - Same for `KokoroTtsEngine.kt` → `KokoroTermuxClient.kt`.
+   - Update `HorizonsApplication.moonshine` / `.kokoro` type
+     references, `MicCaptureController.sttSupplier`,
+     `SpeakerPlayer.ttsSupplier`.
+   - Remove `onnxruntime-android` from Gradle.
+5. **Smoke tests** (after the swap, before voice claims to work):
+   - Mic button → script returns real transcript, lands in input.
+   - Send → response → script speaks audio.
+6. **Termux round-trip verify** (separate from STT/TTS):
+   - Add a "Send `ls`" button in TerminalPanel that fires through
+     `TermuxBridge.run("ls")` and surfaces the result.
+7. **Screenshot capture field test:**
+   - The current code has a 400ms `delay()` after FGS start, before
+     `getMediaProjection`. If that throws SecurityException on the
+     Razr, replace with a bound-service ready signal.
+8. **Tasker outbound smoke test:**
+   - Diag panel button that fires `app.tasker.runTask("HorizonsTest")`
+     against a known Tasker profile to confirm the broadcast lands.
+
+## Open known issues
+
+- **Moonshine inference = stub** (returns `"[moonshine: N samples...]"`).
+  Will be replaced wholesale by Termux client per item 4 above.
+- **Kokoro synth = stub** (logs + no-op). Same fate.
+- **Cloud agent MCPs** stripped pending vault wiring.
+- **CI Node 20 actions** deprecation Sept 16 2026 — bump versions.
+- **Leaked API key from chat is still live.** Rotate.
+
 ## Session state — current as of latest commit
 
 Tonight's wins (2026-06-05 → 2026-06-06):
