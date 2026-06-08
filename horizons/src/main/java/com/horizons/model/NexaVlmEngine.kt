@@ -30,12 +30,12 @@ class NexaVlmEngine(
     @Volatile var lastInitMessage: String = "(not initialized)"
         private set
 
-    // Operator-tunable. Set via setSystemPrompt() / setThinking() between turns.
+    // Operator-tunable. Write directly; the chat-template call on each turn
+    // reads these. systemPrompt has a custom setter that falls back to the
+    // default when assigned blank so the model always has SOME instruction.
     @Volatile var systemPrompt: String = DEFAULT_SYSTEM
+        set(value) { field = value.ifBlank { DEFAULT_SYSTEM } }
     @Volatile var enableThinking: Boolean = false
-
-    fun setSystemPrompt(text: String) { systemPrompt = text.ifBlank { DEFAULT_SYSTEM } }
-    fun setThinking(enabled: Boolean) { enableThinking = enabled }
 
     override suspend fun load() {
         // Auto-create config.json if missing (HF ships 0 bytes, Chrome may drop).

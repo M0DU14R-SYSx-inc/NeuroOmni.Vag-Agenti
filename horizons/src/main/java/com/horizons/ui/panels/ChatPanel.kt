@@ -210,7 +210,7 @@ fun ChatPanel(modifier: Modifier = Modifier) {
             }
             IconButton(onClick = {
                 thinking = !thinking
-                (app.engine() as? com.horizons.model.NexaVlmEngine)?.setThinking(thinking)
+                (app.engine() as? com.horizons.model.NexaVlmEngine)?.enableThinking = thinking
             }) {
                 Icon(
                     if (thinking) Icons.Filled.Psychology else Icons.Outlined.Psychology,
