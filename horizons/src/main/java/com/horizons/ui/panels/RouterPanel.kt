@@ -64,7 +64,7 @@ fun RouterPanel(modifier: Modifier = Modifier) {
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         busy = true; line = "Scanning..."; progressFrac = null
-        scope.launch {
+        app.scope.launch {
             EdgeModelImporter.importFromTree(ctx, uri) { p ->
                 line = "Copying [${p.fileIndex}/${p.fileCount}] ${p.currentFile}"
                 progressFrac = p.fraction
@@ -85,7 +85,7 @@ fun RouterPanel(modifier: Modifier = Modifier) {
     val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
         busy = true; line = "Importing ${uris.size} file(s)..."; progressFrac = null
-        scope.launch {
+        app.scope.launch {
             EdgeModelImporter.importFiles(ctx, uris) { p ->
                 line = "Copying [${p.fileIndex}/${p.fileCount}] ${p.currentFile}"
                 progressFrac = p.fraction
@@ -126,7 +126,7 @@ fun RouterPanel(modifier: Modifier = Modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(modifier = Modifier.weight(1f), enabled = !busy, onClick = {
                 busy = true; line = "Starting HF download..."; progressFrac = null
-                scope.launch {
+                app.scope.launch {
                     EdgeModelDownloader.download(ctx) { p ->
                         line = "[${p.fileIndex}/${p.fileCount}] ${p.currentFile}"; progressFrac = p.fraction
                     }.onSuccess {
@@ -156,11 +156,16 @@ fun RouterPanel(modifier: Modifier = Modifier) {
         Text("Status: $sttStatus")
         OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
             busy = true; line = "Downloading Moonshine (~67 MB)..."
-            scope.launch {
-                MoonshineDownloader.download(ctx) { p ->
-                    line = "[stt ${p.fileIndex}/${p.fileCount}] ${p.currentFile}"; progressFrac = p.fraction
-                }.onSuccess { app.tryLoadStt(); line = "Moonshine: ${app.sttStatus.value}" }
-                    .onFailure { line = "Moonshine download failed: ${it.message}" }
+            // app.scope is SupervisorJob on the Application — survives tab
+            // switches. Using rememberCoroutineScope() cancelled the
+            // download the moment the user navigated away from Router.
+            app.scope.launch {
+                runCatching {
+                    MoonshineDownloader.download(ctx) { p ->
+                        line = "[stt ${p.fileIndex}/${p.fileCount}] ${p.currentFile}"; progressFrac = p.fraction
+                    }.onSuccess { app.tryLoadStt(); line = "Moonshine: ${app.sttStatus.value}" }
+                        .onFailure { line = "Moonshine download failed: ${it.javaClass.simpleName}: ${it.message}" }
+                }.onFailure { line = "Moonshine download crashed: ${it.javaClass.simpleName}: ${it.message}" }
                 busy = false
             }
         }) { Text("Download Moonshine STT") }
@@ -172,11 +177,13 @@ fun RouterPanel(modifier: Modifier = Modifier) {
         Text("Status: $ttsStatus")
         OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
             busy = true; line = "Downloading Kokoro (~87 MB)..."
-            scope.launch {
-                KokoroDownloader.download(ctx) { p ->
-                    line = "[tts ${p.fileIndex}/${p.fileCount}] ${p.currentFile}"; progressFrac = p.fraction
-                }.onSuccess { app.tryLoadTts(); line = "Kokoro: ${app.ttsStatus.value}" }
-                    .onFailure { line = "Kokoro download failed: ${it.message}" }
+            app.scope.launch {
+                runCatching {
+                    KokoroDownloader.download(ctx) { p ->
+                        line = "[tts ${p.fileIndex}/${p.fileCount}] ${p.currentFile}"; progressFrac = p.fraction
+                    }.onSuccess { app.tryLoadTts(); line = "Kokoro: ${app.ttsStatus.value}" }
+                        .onFailure { line = "Kokoro download failed: ${it.javaClass.simpleName}: ${it.message}" }
+                }.onFailure { line = "Kokoro download crashed: ${it.javaClass.simpleName}: ${it.message}" }
                 busy = false
             }
         }) { Text("Download Kokoro TTS") }
