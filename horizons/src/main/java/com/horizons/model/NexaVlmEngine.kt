@@ -7,6 +7,8 @@ import com.nexa.sdk.VlmWrapper
 import com.nexa.sdk.bean.GenerationConfig
 import com.nexa.sdk.bean.LlmStreamResult
 import com.nexa.sdk.bean.ModelConfig
+import com.nexa.sdk.bean.VlmChatMessage
+import com.nexa.sdk.bean.VlmContent
 import com.nexa.sdk.bean.VlmCreateInput
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +29,13 @@ class NexaVlmEngine(
         private set
     @Volatile var lastInitMessage: String = "(not initialized)"
         private set
+
+    // Operator-tunable. Set via setSystemPrompt() / setThinking() between turns.
+    @Volatile var systemPrompt: String = DEFAULT_SYSTEM
+    @Volatile var enableThinking: Boolean = false
+
+    fun setSystemPrompt(text: String) { systemPrompt = text.ifBlank { DEFAULT_SYSTEM } }
+    fun setThinking(enabled: Boolean) { enableThinking = enabled }
 
     override suspend fun load() {
         // Auto-create config.json if missing (HF ships 0 bytes, Chrome may drop).
@@ -88,9 +97,33 @@ class NexaVlmEngine(
         vlm = null
     }
 
-    override fun generateStream(prompt: String, imagePath: String?): Flow<String> {
-        val wrapper = vlm ?: return flow { throw IllegalStateException("NexaVlmEngine.load() not called") }
-        return wrapper.generateStreamFlow(prompt, GenerationConfig())
+    override fun generateStream(prompt: String, imagePath: String?): Flow<String> = flow {
+        val wrapper = vlm ?: throw IllegalStateException("NexaVlmEngine.load() not called")
+
+        // Build the chat message — VlmContent for text + optional image.
+        val contents = buildList<VlmContent> {
+            add(VlmContent("text", prompt))
+            if (!imagePath.isNullOrBlank()) add(VlmContent("image_url", imagePath))
+        }
+        val messages = arrayOf(VlmChatMessage("user", contents))
+
+        // Apply the chat template — without this the model sees raw text and
+        // produces continuation-style output (echoes short inputs verbatim).
+        val templated = wrapper.applyChatTemplate(messages, systemPrompt, enableThinking)
+            .getOrElse { throw it }
+            .formattedText
+
+        // Explicit GenerationConfig — default constructor caps maxTokens at
+        // something low (~256) which produces the "stops after 6 lines" bug.
+        val config = GenerationConfig().apply {
+            maxTokens = 2048
+            if (!imagePath.isNullOrBlank()) {
+                imagePaths = arrayOf(imagePath)
+                imageCount = 1
+            }
+        }
+
+        wrapper.generateStreamFlow(templated, config)
             .mapNotNull { result ->
                 when (result) {
                     is LlmStreamResult.Token -> result.text
@@ -105,10 +138,13 @@ class NexaVlmEngine(
                     else -> null
                 }
             }
-            .flowOn(Dispatchers.Default)
-    }
+            .collect { emit(it) }
+    }.flowOn(Dispatchers.Default)
 
     override suspend fun buildMetaPrompt(rawText: String, target: MetaPromptTarget): String = rawText
 
-    private companion object { const val TAG = "NexaVlmEngine" }
+    private companion object {
+        const val TAG = "NexaVlmEngine"
+        const val DEFAULT_SYSTEM = "You are Horizons, an on-device assistant running on the Razr Ultra's Hexagon NPU. Be direct, concise, and useful. Do not echo the user's input back."
+    }
 }

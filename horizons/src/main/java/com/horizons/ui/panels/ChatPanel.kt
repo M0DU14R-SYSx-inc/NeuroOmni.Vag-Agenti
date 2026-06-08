@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
@@ -73,6 +75,11 @@ fun ChatPanel(modifier: Modifier = Modifier) {
         null -> "auto (${app.engine().backendTag})"
         else -> backends.firstOrNull { it.id == id }?.displayName ?: id
     }
+
+    // Thinking toggle for the NPU VLM. Only meaningful when the active backend
+    // is the NexaVlmEngine — cloud backends ignore it. Updated state pushed
+    // straight into the engine so the next chat template call sees it.
+    var thinking by remember { mutableStateOf(false) }
 
     fun doSend(prompt: String) {
         if (prompt.isBlank()) return
@@ -199,6 +206,15 @@ fun ChatPanel(modifier: Modifier = Modifier) {
                 Icon(
                     if (autoSpeak) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
                     if (autoSpeak) "Auto-speak on" else "Auto-speak off"
+                )
+            }
+            IconButton(onClick = {
+                thinking = !thinking
+                (app.engine() as? com.horizons.model.NexaVlmEngine)?.setThinking(thinking)
+            }) {
+                Icon(
+                    if (thinking) Icons.Filled.Psychology else Icons.Outlined.Psychology,
+                    if (thinking) "Thinking on" else "Thinking off"
                 )
             }
             OutlinedTextField(
