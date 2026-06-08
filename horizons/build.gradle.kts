@@ -63,6 +63,14 @@ android {
     packaging {
         resources.excludes += setOf("META-INF/{AL2.0,LGPL2.1}", "META-INF/DEPENDENCIES")
         jniLibs {
+            // LIGHTHOUSE non-negotiable: Nexa SDK's plugin loader calls dlopen()
+            // with a real file path, which requires the .so files to be extracted
+            // to the device filesystem at install time. AGP 7+ defaults to
+            // useLegacyPackaging=false (libs stay compressed inside the APK),
+            // which causes:
+            //   "Cannot find libnexa_plugin_npu.so in /data/app/.../lib/arm64"
+            // at NexaSdk.init(). Set to true so the install-time extractor runs.
+            useLegacyPackaging = true
             // Razr Ultra is arm64 only. Strip every other ABI bundled by AARs
             // (Nexa SDK + ORT each ship libs for 4 ABIs by default).
             excludes += setOf(
