@@ -15,7 +15,8 @@
 
 | Milestone | Status | Claimed by | Started |
 |---|---|---|---|
-| — | — | — | — |
+| M1.1 | IN_PROGRESS | sonnet-4.7 / sub-agent at-bat | 2026-06-08 |
+| M1.3 | IN_PROGRESS | sonnet-4.7 / main session | 2026-06-08 |
 
 *(Update this table when you claim a milestone. Format: just edit the row,
 commit `chore(board): M1.3 claimed by claude/jolly-lamport-5cJJ4`.)*
@@ -58,8 +59,8 @@ prereqs.*
 ### M1.1 — Real Moonshine STT inference
 
 ```yaml
-status: AVAILABLE
-claimed_by: null
+status: IN_PROGRESS
+claimed_by: sonnet-4.7 sub-agent at-bat (main: jolly-lamport-5cJJ4)
 difficulty: 3
 depends_on: []
 files:
@@ -128,8 +129,8 @@ notes: |
 ### M1.3 — `<think>` block parser + collapsible reply UI
 
 ```yaml
-status: AVAILABLE
-claimed_by: null
+status: IN_PROGRESS
+claimed_by: sonnet-4.7 main session (jolly-lamport-5cJJ4)
 difficulty: 2
 depends_on: []
 files:
