@@ -221,19 +221,32 @@ fun RouterPanel(modifier: Modifier = Modifier) {
 
 @Composable
 private fun KeyRow(app: HorizonsApplication, label: String, key: String) {
-    var value by remember { mutableStateOf(app.credentials.get(key) ?: "") }
-    var saved by remember { mutableStateOf(app.credentials.has(key)) }
+    val stored = app.credentials.get(key) ?: ""
+    var value by remember { mutableStateOf(stored) }
+    var saved by remember { mutableStateOf(app.credentials.has(key) && stored.isNotBlank()) }
+    var reveal by remember { mutableStateOf(false) }
+    val isSecret = saved && !reveal && stored.isNotBlank()
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         OutlinedTextField(
             modifier = Modifier.weight(1f),
             value = value,
-            onValueChange = { value = it; saved = false },
-            label = { Text(label) },
-            singleLine = true
+            onValueChange = { value = it; saved = false; reveal = true },
+            label = { Text(if (saved) "$label ✓ saved" else label) },
+            singleLine = true,
+            visualTransformation = if (isSecret) androidx.compose.ui.text.input.PasswordVisualTransformation()
+                                   else androidx.compose.ui.text.input.VisualTransformation.None,
+            trailingIcon = {
+                if (saved) {
+                    TextButton(onClick = { reveal = !reveal }) {
+                        Text(if (reveal) "hide" else "show")
+                    }
+                }
+            }
         )
         TextButton(enabled = value.isNotBlank() && !saved, onClick = {
             app.credentials.put(key, value.trim())
             saved = true
+            reveal = false
             // Side-effects per-key. nexa.token gates NPU license activation
             // and must be re-exported as an env var + engine reloaded.
             if (key == "nexa.token") {

@@ -9,19 +9,8 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import kotlinx.coroutines.CompletableDeferred
 
-/**
- * Foreground service required for MediaProjection on Android 14+ (API 34+).
- *
- * MUST be started (and reach foreground state) BEFORE
- * MediaProjectionManager.getMediaProjection(resultCode, data) is invoked, otherwise
- * the platform throws SecurityException("Media projections require a foreground service
- * of type ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION").
- *
- * The consent (resultCode + Intent data) is passed through as extras so the caller has
- * a single entry point. ScreenshotCapture reads them back via the static [latestConsent]
- * holder once the service is up.
- */
 class ScreenCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -47,11 +36,16 @@ class ScreenCaptureService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        // Signal that startForeground has returned, i.e. the FGS is now in
+        // foreground state and MediaProjection.getMediaProjection() is safe.
+        // Callers await this instead of guessing a delay.
+        readySignal?.complete(Unit)
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
         latestConsent = null
+        readySignal = null
         super.onDestroy()
     }
 
@@ -69,10 +63,22 @@ class ScreenCaptureService : Service() {
             internal set
 
         /**
-         * Start the FGS so MediaProjection can run on API 34+. Caller (Activity) must
-         * invoke this BEFORE [android.media.projection.MediaProjectionManager.getMediaProjection].
+         * Reset on every [start]; completed inside [onStartCommand] once the
+         * service has reached foreground state via startForeground(). Callers
+         * `await()` this before invoking MediaProjectionManager.getMediaProjection
+         * so we don't race with the SecurityException("FGS required") trap.
          */
-        fun start(context: Context, resultCode: Int, data: Intent) {
+        @Volatile
+        private var readySignal: CompletableDeferred<Unit>? = null
+
+        /**
+         * Start the FGS so MediaProjection can run on API 34+. Returns a Deferred
+         * that completes when the service is actually in foreground state — the
+         * caller awaits it before calling getMediaProjection.
+         */
+        fun start(context: Context, resultCode: Int, data: Intent): CompletableDeferred<Unit> {
+            val signal = CompletableDeferred<Unit>()
+            readySignal = signal
             val intent = Intent(context, ScreenCaptureService::class.java).apply {
                 putExtra(EXTRA_RESULT_CODE, resultCode)
                 putExtra(EXTRA_DATA, data)
@@ -82,6 +88,7 @@ class ScreenCaptureService : Service() {
             } else {
                 context.startService(intent)
             }
+            return signal
         }
 
         fun stop(context: Context) {

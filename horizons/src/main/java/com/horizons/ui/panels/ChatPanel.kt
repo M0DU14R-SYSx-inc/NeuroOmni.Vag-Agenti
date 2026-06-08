@@ -1,8 +1,11 @@
 package com.horizons.ui.panels
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,14 +15,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.horizons.HorizonsApplication
 import com.horizons.audio.MicCaptureController
 import com.horizons.screen.ScreenCaptureService
@@ -56,38 +64,27 @@ fun ChatPanel(modifier: Modifier = Modifier) {
     val micState by app.micController.state.collectAsState()
     val pendingImagePath by app.pendingImagePath.collectAsState()
 
-    val consentLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val granted = app.screenshotCapture.onConsentResult(result.resultCode, result.data)
-        if (!granted) return@rememberLauncherForActivityResult
-        // FGS must be up BEFORE getMediaProjection (API 34+).
-        ScreenCaptureService.start(ctx, result.resultCode, result.data!!)
-        scope.launch {
-            // Small delay so FGS reaches foreground state before projection acquisition.
-            kotlinx.coroutines.delay(400)
-            app.screenshotCapture.captureToFile()
-                .onSuccess { f -> app.setPendingImagePath(f.absolutePath) }
-                .onFailure { /* swallow — indicator stays absent */ }
-        }
+    // AUTO = orchestrator default routing (NPU → failover → openrouter).
+    // Any other value is a NamedBackend.id passed as orchestrator.stream(forcedToolId).
+    var forcedBackendId by remember { mutableStateOf<String?>(null) }
+    var backendMenuOpen by remember { mutableStateOf(false) }
+    val backends = remember { app.providerLibrary.load() }
+    val activeLabel = when (val id = forcedBackendId) {
+        null -> "auto (${app.engine().backendTag})"
+        else -> backends.firstOrNull { it.id == id }?.displayName ?: id
     }
 
-    LaunchedEffect(turns.size) {
-        if (turns.isNotEmpty()) listState.animateScrollToItem(turns.size - 1)
-    }
-
-    fun send(prompt: String) {
+    fun doSend(prompt: String) {
         if (prompt.isBlank()) return
         val stagedImage = app.pendingImagePath.value
         turns += ChatTurn("you", prompt)
         val replyIdx = turns.size
         turns += ChatTurn("...", "")
         busy = true
-        // Consume the staged screenshot once — the next send is a clean text turn.
         app.setPendingImagePath(null)
         scope.launch {
             var acc = ""
-            app.orchestrator.stream(prompt, imagePath = stagedImage)
+            app.orchestrator.stream(prompt, imagePath = stagedImage, forcedToolId = forcedBackendId)
                 .catch { e ->
                     turns[replyIdx] = ChatTurn("error", "${e.javaClass.simpleName}: ${e.message}")
                 }
@@ -104,8 +101,67 @@ fun ChatPanel(modifier: Modifier = Modifier) {
         }
     }
 
+    fun triggerMicToggle() {
+        scope.launch {
+            val r = app.micController.toggle()
+            val text = r.getOrNull()
+            if (!text.isNullOrBlank()) doSend(text)
+        }
+    }
+
+    val micPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> if (granted) triggerMicToggle() }
+
+    // Awaits the FGS readySignal so we don't race the
+    // SecurityException("FGS required") trap on API 34+.
+    val consentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val granted = app.screenshotCapture.onConsentResult(result.resultCode, result.data)
+        if (!granted) return@rememberLauncherForActivityResult
+        scope.launch {
+            val ready = ScreenCaptureService.start(ctx, result.resultCode, result.data!!)
+            runCatching { ready.await() }
+            app.screenshotCapture.captureToFile()
+                .onSuccess { f -> app.setPendingImagePath(f.absolutePath) }
+                .onFailure { /* indicator stays absent */ }
+        }
+    }
+
+    LaunchedEffect(turns.size) {
+        if (turns.isNotEmpty()) listState.animateScrollToItem(turns.size - 1)
+    }
+
     Column(modifier.fillMaxSize().padding(12.dp)) {
-        Text("Chat — ${app.engine().backendTag} (or cloud fallback)")
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("Chat — ", modifier = Modifier.padding(end = 4.dp))
+            Box {
+                OutlinedButton(onClick = { backendMenuOpen = true }) {
+                    Text(activeLabel)
+                    Icon(Icons.Filled.ArrowDropDown, "pick backend")
+                }
+                DropdownMenu(expanded = backendMenuOpen, onDismissRequest = { backendMenuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("auto (${app.engine().backendTag} / failover)") },
+                        onClick = { forcedBackendId = null; backendMenuOpen = false }
+                    )
+                    backends.forEach { b ->
+                        DropdownMenuItem(
+                            text = { Text(b.displayName) },
+                            onClick = { forcedBackendId = b.id; backendMenuOpen = false }
+                        )
+                    }
+                    if (backends.isEmpty()) {
+                        DropdownMenuItem(
+                            enabled = false,
+                            text = { Text("(no named backends — add via Router)") },
+                            onClick = {}
+                        )
+                    }
+                }
+            }
+        }
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f).padding(vertical = 8.dp),
             state = listState,
@@ -116,11 +172,11 @@ fun ChatPanel(modifier: Modifier = Modifier) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton(
                 onClick = {
-                    scope.launch {
-                        val r = app.micController.toggle()
-                        val text = r.getOrNull()
-                        if (!text.isNullOrBlank()) send(text)
-                    }
+                    val have = ContextCompat.checkSelfPermission(
+                        ctx, Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (have) triggerMicToggle()
+                    else micPermLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 },
                 enabled = !busy && micState !is MicCaptureController.State.Transcribing
             ) {
@@ -132,13 +188,7 @@ fun ChatPanel(modifier: Modifier = Modifier) {
             }
             IconButton(
                 enabled = !busy,
-                onClick = {
-                    // If consent already persisted this process, captureToFile() will succeed
-                    // without re-prompting. Easiest path: always launch the consent intent;
-                    // Android's MediaProjection requires fresh consent per capture session
-                    // on API 34+, so caching the grant client-side is moot.
-                    consentLauncher.launch(app.screenshotCapture.prepareConsentIntent())
-                }
+                onClick = { consentLauncher.launch(app.screenshotCapture.prepareConsentIntent()) }
             ) {
                 Icon(Icons.Filled.CameraAlt, "Screenshot")
             }
@@ -160,7 +210,7 @@ fun ChatPanel(modifier: Modifier = Modifier) {
             )
             Button(
                 enabled = input.isNotBlank() && !busy,
-                onClick = { val p = input.trim(); input = ""; send(p) }
+                onClick = { val p = input.trim(); input = ""; doSend(p) }
             ) { Text(if (busy) "..." else "Send") }
         }
         if (pendingImagePath != null) {
