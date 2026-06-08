@@ -15,7 +15,6 @@
 
 | Milestone | Status | Claimed by | Started |
 |---|---|---|---|
-| M1.1 | IN_PROGRESS | sonnet-4.7 / sub-agent at-bat | 2026-06-08 |
 | M1.3 | IN_PROGRESS | sonnet-4.7 / main session | 2026-06-08 |
 
 *(Update this table when you claim a milestone. Format: just edit the row,
@@ -59,8 +58,8 @@ prereqs.*
 ### M1.1 — Real Moonshine STT inference
 
 ```yaml
-status: IN_PROGRESS
-claimed_by: sonnet-4.7 sub-agent at-bat (main: jolly-lamport-5cJJ4)
+status: DONE
+claimed_by: null
 difficulty: 3
 depends_on: []
 files:
