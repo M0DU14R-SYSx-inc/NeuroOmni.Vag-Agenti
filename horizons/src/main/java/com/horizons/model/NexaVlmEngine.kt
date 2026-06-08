@@ -63,16 +63,24 @@ class NexaVlmEngine(
         initResult.getOrThrow()
         Log.i(TAG, "NexaSdk.init succeeded")
 
+        // Nexa SDK Model.create() expects the absolute path to the `.nexa`
+        // weights file, NOT the model folder. Passing the folder returns
+        // garbage error codes like -1594563832. See lighthouse doc.
+        val modelFile = java.io.File(modelFolder, "files-1-1.nexa")
+        require(modelFile.isFile) {
+            "Expected files-1-1.nexa inside $modelFolder; got listing: ${java.io.File(modelFolder).list()?.joinToString()}"
+        }
+
         val input = VlmCreateInput(
             model_name = "omni-neural",
-            model_path = modelFolder,
+            model_path = modelFile.absolutePath,
             mmproj_path = "",
             config = ModelConfig(max_tokens = 2048, enable_thinking = false),
             plugin_id = NexaSdk.PLUGIN_ID_NPU,
             device_id = ""
         )
         vlm = VlmWrapper.builder().vlmCreateInput(input).build().getOrThrow()
-        Log.i(TAG, "OmniNeural-4B-mobile loaded on Hexagon NPU; folder=$modelFolder")
+        Log.i(TAG, "OmniNeural-4B-mobile loaded on Hexagon NPU; model_path=${modelFile.absolutePath}")
     }
 
     override suspend fun unload() {
