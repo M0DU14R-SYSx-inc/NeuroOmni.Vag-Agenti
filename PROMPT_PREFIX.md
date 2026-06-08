@@ -56,7 +56,13 @@ Lighthouse rationale: Adreno GPU and Hexagon NPU are separate
 silicon → Kokoro on GPU does NOT contend with OmniNeural NPU.
 Termux system TTS gives up Kokoro voice quality and is a regression.
 
-### Non-negotiable Gradle flags (verified present)
+### Non-negotiable Gradle flags (verified present as of commit ec74f8c)
+
+> Earlier in this session I claimed these were "verified present"
+> when in fact `useLegacyPackaging` was MISSING — caused every shipped
+> APK to fail `NexaSdk.init` with `Cannot find libnexa_plugin_*.so`
+> at dlopen time. Fixed in ec74f8c. The 6-hour bug. Don't trust
+> "verified" claims that aren't paired with an actual file:line grep.
 
 ```kotlin
 minSdk = 27
