@@ -15,7 +15,7 @@
 
 | Milestone | Status | Claimed by | Started |
 |---|---|---|---|
-| M1.3 | IN_PROGRESS | sonnet-4.7 / main session | 2026-06-08 |
+| — | — | — | — |
 
 *(Update this table when you claim a milestone. Format: just edit the row,
 commit `chore(board): M1.3 claimed by claude/jolly-lamport-5cJJ4`.)*
@@ -128,8 +128,8 @@ notes: |
 ### M1.3 — `<think>` block parser + collapsible reply UI
 
 ```yaml
-status: IN_PROGRESS
-claimed_by: sonnet-4.7 main session (jolly-lamport-5cJJ4)
+status: DONE
+claimed_by: null
 difficulty: 2
 depends_on: []
 files:

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -51,7 +52,41 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 
-data class ChatTurn(val role: String, val text: String)
+data class ChatTurn(
+    val role: String,
+    val text: String,
+    val thinkingExpanded: Boolean = false,
+)
+
+// Splits a raw model reply (which may contain <think>...</think> blocks
+// from enableThinking=true) into the visible answer + concatenated
+// thinking trace. Handles unclosed final <think> by treating the rest
+// as thinking. Multiple think blocks are joined with a blank line.
+private data class ThinkSplit(val visible: String, val thinking: String)
+
+private fun splitThink(raw: String): ThinkSplit {
+    if (!raw.contains("<think>")) return ThinkSplit(raw, "")
+    val visible = StringBuilder()
+    val thinking = StringBuilder()
+    var i = 0
+    while (i < raw.length) {
+        val open = raw.indexOf("<think>", i)
+        if (open < 0) { visible.append(raw, i, raw.length); break }
+        visible.append(raw, i, open)
+        val close = raw.indexOf("</think>", open + 7)
+        if (close < 0) {
+            // Unclosed — everything from <think> on is thinking, no more visible.
+            if (thinking.isNotEmpty()) thinking.append("\n\n")
+            thinking.append(raw.substring(open + 7))
+            i = raw.length
+        } else {
+            if (thinking.isNotEmpty()) thinking.append("\n\n")
+            thinking.append(raw, open + 7, close)
+            i = close + 8
+        }
+    }
+    return ThinkSplit(visible.toString().trim(), thinking.toString().trim())
+}
 
 @Composable
 fun ChatPanel(modifier: Modifier = Modifier) {
@@ -174,7 +209,39 @@ fun ChatPanel(modifier: Modifier = Modifier) {
             state = listState,
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            items(turns) { t -> Text("${t.role}: ${t.text}") }
+            itemsIndexed(turns) { idx, t ->
+                if (t.role == "reply") {
+                    val split = splitThink(t.text)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("reply: ${split.visible}")
+                        if (split.thinking.isNotBlank()) {
+                            androidx.compose.material3.TextButton(
+                                onClick = {
+                                    turns[idx] = t.copy(thinkingExpanded = !t.thinkingExpanded)
+                                },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
+                            ) {
+                                Text(
+                                    if (t.thinkingExpanded) "▾ hide thinking" else "▸ show thinking",
+                                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            if (t.thinkingExpanded) {
+                                Text(
+                                    split.thinking,
+                                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        color = androidx.compose.ui.graphics.Color(0xCCB0BEC5)
+                                    ),
+                                    modifier = Modifier.padding(start = 12.dp, top = 2.dp, bottom = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text("${t.role}: ${t.text}")
+                }
+            }
         }
         // Action icons row — full-width above the input so they don't
         // squeeze the text field down to ~4 chars when long input wraps.
