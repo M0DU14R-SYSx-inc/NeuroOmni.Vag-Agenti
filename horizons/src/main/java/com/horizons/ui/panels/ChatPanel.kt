@@ -176,6 +176,8 @@ fun ChatPanel(modifier: Modifier = Modifier) {
         ) {
             items(turns) { t -> Text("${t.role}: ${t.text}") }
         }
+        // Action icons row — full-width above the input so they don't
+        // squeeze the text field down to ~4 chars when long input wraps.
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton(
                 onClick = {
@@ -217,11 +219,18 @@ fun ChatPanel(modifier: Modifier = Modifier) {
                     if (thinking) "Thinking on" else "Thinking off"
                 )
             }
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.Bottom
+        ) {
             OutlinedTextField(
                 value = input,
                 onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
                 enabled = !busy,
+                maxLines = 5,
                 placeholder = { Text("Ask Horizons...") }
             )
             Button(
