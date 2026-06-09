@@ -24,7 +24,7 @@ each that you find load-bearing:
 (If any file is missing, stop and report it — do NOT proceed without all
 three.)
 
-Working branch: claude/jolly-lamport-5cJJ4. Never push main without my
+Working branch: main. Never push main without my
 explicit say-so. No --no-verify. Don't add features, abstractions, or
 scaffolding the task didn't ask for.
 

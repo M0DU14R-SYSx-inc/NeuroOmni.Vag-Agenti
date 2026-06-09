@@ -352,7 +352,7 @@ credentials. No proxy in between (LiteLLM/Frontier-proxy idea is DEAD).
 ## Source URLs (verified, not guessed)
 
 - Repo: https://github.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti
-- Branch: `claude/jolly-lamport-5cJJ4`
+- Branch: `main`
 - Stable APK URL: https://github.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/releases/tag/latest-debug
 - Ping channel: https://github.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/issues/3
 - Nexa SDK Maven: https://repo1.maven.org/maven2/ai/nexa/core/0.0.24/

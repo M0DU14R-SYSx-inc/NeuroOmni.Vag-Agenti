@@ -263,7 +263,7 @@ primary path. Do NOT gut `MoonshineSttEngine.kt`,
 
 Tonight's wins (2026-06-05 → 2026-06-06):
 
-Code shipped to `claude/jolly-lamport-5cJJ4`:
+Code shipped to `main`:
 
   - `AnthropicDirectClient` with `systemPrompt`, `cache_control: ephemeral`,
     `lastUsage` (cacheCreation/cacheRead tokens), and `preWarm()`.
@@ -347,7 +347,7 @@ Slot composition is a stub — refine after first dispatch.
 
 ## Hard rules for every sub-agent
 
-  - Working branch: `claude/jolly-lamport-5cJJ4`. Never push to `main`
+  - Working branch: `main`. Never push to `main`
     without explicit user permission.
   - Never commit credentials. `debug.keystore` is the documented
     exception (public-by-design for stable APK signatures).

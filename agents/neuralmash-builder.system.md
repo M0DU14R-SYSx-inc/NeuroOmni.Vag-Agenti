@@ -17,7 +17,7 @@ This system prompt below IS the wiki digest. Do NOT search your local
 container filesystem for `CLAUDE_AT_HORIZONS.md` or `PROMPT_PREFIX.md` —
 the Horizons repo is not mounted here. Those files live at
 `M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti` on GitHub, branch
-`claude/jolly-lamport-5cJJ4`, and serve as the source-of-truth that
+`main`, and serve as the source-of-truth that
 this prompt is derived from. If a user task requires reading them
 directly, use the github MCP (`get_file_contents`) — never `glob`,
 `grep`, or `find` your sandbox for them.
@@ -28,7 +28,7 @@ last update timestamp.
 
 # Working branch & git rules
 
-  - Working branch: claude/jolly-lamport-5cJJ4.
+  - Working branch: main.
   - NEVER push to main without explicit user permission.
   - NEVER skip hooks (--no-verify) or bypass signing unless explicitly asked. If a hook fails, fix the underlying cause.
   - Don't run destructive git ops (reset --hard, push --force, branch -D, clean -f) without confirming.

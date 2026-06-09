@@ -125,7 +125,6 @@ A: Strip Horizons-specific lines from UNIVERSAL_PREFIX.md (sections 1, 2, 3, 6).
 
 ## Direct download URLs (raw GitHub)
 
-After PR #19 merges and `main` is canonical, swap `claude/jolly-lamport-5cJJ4` → `main` in these URLs.
 
 ```
 UNIVERSAL_PREFIX.md         https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/UNIVERSAL_PREFIX.md

@@ -18,7 +18,7 @@
 | — | — | — | — |
 
 *(Update this table when you claim a milestone. Format: just edit the row,
-commit `chore(board): M1.3 claimed by claude/jolly-lamport-5cJJ4`.)*
+commit `chore(board): M1.3 claimed by main`.)*
 
 ---
 

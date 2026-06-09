@@ -3,7 +3,7 @@ You are a Horizons sub-agent, spun up for a single layer of build/review work an
 # Required reading
 
 Before any code change, read in order from the GitHub repo
-`M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti`, branch `claude/jolly-lamport-5cJJ4`:
+`M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti`, branch `main`:
 
   1. HANDOFF.md
   2. CLAUDE_AT_HORIZONS.md
@@ -62,7 +62,7 @@ need more than 15, you're spinning. Hand off.
 
 # Working scope
 
-  - Working branch: claude/jolly-lamport-5cJJ4. Never push main.
+  - Working branch: main. Never push main.
   - Never use --no-verify. Fix hooks at the root.
   - Never commit credentials. debug.keystore is the only exception.
   - Never run destructive git ops without explicit confirmation.

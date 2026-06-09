@@ -17,7 +17,7 @@ Horizons is an on-device AI assistant for the Motorola Razr Ultra 2025
   - NO Python sidecar, NO Vulkan, NO Ollama, NO `nexa serve`,
     NO LiteLLM proxy.
   - ABI: arm64-v8a only.
-  - Working branch: `claude/jolly-lamport-5cJJ4`. Never push `main`
+  - Working branch: `main`. Never push `main`
     without explicit user permission.
 
 ## 2. The two wikis
@@ -176,6 +176,6 @@ horizons/src/main/java/com/horizons/
   ui/panels/TerminalPanel.kt
 ```
 
-PRs/branches the user cares about: `claude/jolly-lamport-5cJJ4` is
+PRs/branches the user cares about: `main` is
 the only one. CI builds APK via `.github/workflows/build-apk.yml`
 and publishes to `latest-debug` release.

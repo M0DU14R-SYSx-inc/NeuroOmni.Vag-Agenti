@@ -21,7 +21,7 @@ the project by claiming a milestone from `EXECUTION_BOARD.md`, doing
 the work, committing, pushing.
 
 Repo: `M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti`
-Working branch: **`claude/jolly-lamport-5cJJ4`**
+Working branch: **`main`**
 GitHub: https://github.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti
 
 ## 2. Locked stack (do NOT re-litigate)
@@ -64,7 +64,7 @@ LangChain. Nexa NPU plugins ship inside the AAR — no extra deps.
 
 ## 4. Hard rules (non-negotiable)
 
-- Working branch is `claude/jolly-lamport-5cJJ4`. **Never push to `main`**
+- Working branch is `main`. **Never push to `main`**
   without explicit operator permission.
 - Never use `--no-verify` or `--no-gpg-sign`. Fix hooks at the root.
 - Never commit credentials. `debug.keystore` is the only documented
@@ -94,11 +94,11 @@ Read in this order on first orientation:
 
 Raw GitHub URLs (fetch any of these directly):
 ```
-https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/EXECUTION_BOARD.md
-https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/PROMPT_PREFIX.md
-https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/docs/LIGHTHOUSE.md
-https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/CLAUDE_AT_HORIZONS.md
-https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/HANDOFF.md
+https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/EXECUTION_BOARD.md
+https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/PROMPT_PREFIX.md
+https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/docs/LIGHTHOUSE.md
+https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/CLAUDE_AT_HORIZONS.md
+https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/HANDOFF.md
 ```
 
 ## 6. Code layout cheat sheet
@@ -148,11 +148,11 @@ curl -sLI 'https://github.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/releases/dow
 
 If you have `gh` CLI authenticated:
 ```bash
-gh run list -R M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti -b claude/jolly-lamport-5cJJ4 -L 3
+gh run list -R M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti -b main -L 3
 ```
 
 If using GitHub MCP (`mcp__github__*`), `actions_list` with
-`method=list_workflow_runs`, `branch=claude/jolly-lamport-5cJJ4`.
+`method=list_workflow_runs`, `branch=main`.
 
 After your commit pushes, wait for CI green before declaring DONE.
 Typical build time 3-6 min. If CI fails, fetch the build log
@@ -207,7 +207,7 @@ hallucinate APIs, CLI flags, or library functions.
 ## 11. Done definition
 
 A milestone is DONE when:
-- Code committed + pushed to `claude/jolly-lamport-5cJJ4`
+- Code committed + pushed to `main`
 - CI green on that commit's APK build
 - Acceptance criteria in the milestone spec are met (verified on device
   if device-bound, or in CI if test-bound)

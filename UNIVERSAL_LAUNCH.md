@@ -18,12 +18,12 @@ Before touching any code, run these orientation steps and reply with
 the answers:
 
 1. Fetch and read EXECUTION_BOARD.md:
-   https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/EXECUTION_BOARD.md
+   https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/EXECUTION_BOARD.md
 
 2. Fetch and read the top "Architecture pivot" section of PROMPT_PREFIX.md:
-   https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/PROMPT_PREFIX.md
+   https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/PROMPT_PREFIX.md
 
-3. Check the latest CI run status for branch claude/jolly-lamport-5cJJ4
+3. Check the latest CI run status for branch main
    via whatever GitHub access you have (gh CLI, MCP, raw API). Confirm
    the latest commit's build is green (or note if it's red — that means
    we have a regression to fix BEFORE new work).
@@ -40,7 +40,7 @@ Wait for operator confirmation before claiming. After confirmation:
   the milestone's status/claimed_by lines), commit with message
   "chore(board): MX.Y claimed by <your-handle>"
 - Then do the work per the spec
-- Push to claude/jolly-lamport-5cJJ4
+- Push to main
 - Wait for CI green
 - Update EXECUTION_BOARD.md to DONE, commit + push
 - Reply with summary + recommended next milestone for the next bat
@@ -49,7 +49,7 @@ Wait for operator confirmation before claiming. After confirmation:
 **Your model tier:** **Sonnet 4.x | Opus 4.8 | Hermes-3 | Qwen-Coder | Codex | other:____**
 
 Constraints:
-- Working branch claude/jolly-lamport-5cJJ4 only
+- Working branch main only
 - No --no-verify, no force-push, no destructive git ops without asking
 - Burn budget: under 10 tool calls per at-bat (hard stop 15)
 - If you hit a failure loop, set milestone status to FAILED with
@@ -91,25 +91,25 @@ Go.
 Save these to a folder on your machine for offline reference:
 
 ```
-UNIVERSAL_PREFIX.md            https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/UNIVERSAL_PREFIX.md
-UNIVERSAL_LAUNCH.md            https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/UNIVERSAL_LAUNCH.md
-EXECUTION_BOARD.md             https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/EXECUTION_BOARD.md
-PROMPT_PREFIX.md               https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/PROMPT_PREFIX.md
-CLAUDE_AT_HORIZONS.md          https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/CLAUDE_AT_HORIZONS.md
-HANDOFF.md                     https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/HANDOFF.md
-SETUP_PROMPT.md                https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/SETUP_PROMPT.md
-MANAGED_AGENT_KICKOFF.md       https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/MANAGED_AGENT_KICKOFF.md
-docs/LIGHTHOUSE.md             https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/docs/LIGHTHOUSE.md
-agents/neuralmash-builder.system.md   https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/agents/neuralmash-builder.system.md
-agents/sub-agent.system.md     https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/agents/sub-agent.system.md
-sub-agent.agent.yaml           https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4/sub-agent.agent.yaml
+UNIVERSAL_PREFIX.md            https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/UNIVERSAL_PREFIX.md
+UNIVERSAL_LAUNCH.md            https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/UNIVERSAL_LAUNCH.md
+EXECUTION_BOARD.md             https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/EXECUTION_BOARD.md
+PROMPT_PREFIX.md               https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/PROMPT_PREFIX.md
+CLAUDE_AT_HORIZONS.md          https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/CLAUDE_AT_HORIZONS.md
+HANDOFF.md                     https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/HANDOFF.md
+SETUP_PROMPT.md                https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/SETUP_PROMPT.md
+MANAGED_AGENT_KICKOFF.md       https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/MANAGED_AGENT_KICKOFF.md
+docs/LIGHTHOUSE.md             https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/docs/LIGHTHOUSE.md
+agents/neuralmash-builder.system.md   https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/agents/neuralmash-builder.system.md
+agents/sub-agent.system.md     https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/agents/sub-agent.system.md
+sub-agent.agent.yaml           https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/sub-agent.agent.yaml
 ```
 
 Bash one-liner to grab them all into `./horizons-handoff/`:
 
 ```bash
 mkdir -p horizons-handoff && cd horizons-handoff
-BASE="https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/claude/jolly-lamport-5cJJ4"
+BASE="https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main"
 for f in UNIVERSAL_PREFIX.md UNIVERSAL_LAUNCH.md EXECUTION_BOARD.md \
          PROMPT_PREFIX.md CLAUDE_AT_HORIZONS.md HANDOFF.md \
          SETUP_PROMPT.md MANAGED_AGENT_KICKOFF.md sub-agent.agent.yaml; do
