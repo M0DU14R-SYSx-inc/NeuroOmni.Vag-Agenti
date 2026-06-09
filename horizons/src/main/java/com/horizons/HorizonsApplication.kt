@@ -241,16 +241,37 @@ class HorizonsApplication : Application() {
         }
     }
 
+    /** Operator-selected Kokoro voice. Persisted in CredentialStore under
+     *  `kokoro.voice`. Defaults to KokoroDownloader.DEFAULT_VOICE (am_adam).
+     *  Changed via setKokoroVoice() which also reloads the TTS engine. */
+    fun kokoroVoice(): String =
+        credentials.get("kokoro.voice")?.takeIf { it in KokoroDownloader.ALL_VOICES }
+            ?: KokoroDownloader.DEFAULT_VOICE
+
+    /** Persist a new Kokoro voice + reload the TTS engine in the background.
+     *  Caller doesn't await — UI just updates the picker, Diag shows the
+     *  new voice once loaded. */
+    fun setKokoroVoice(voice: String) {
+        require(voice in KokoroDownloader.ALL_VOICES) { "Unknown Kokoro voice: $voice" }
+        credentials.put("kokoro.voice", voice)
+        scope.launch {
+            runCatching { kokoro?.release() }
+            kokoro = null
+            tryLoadTts()
+        }
+    }
+
     suspend fun tryLoadTts() {
         val dir = KokoroDownloader.installedDir(this) ?: run {
             _ttsStatus.value = "not staged"; return
         }
-        _ttsStatus.value = "loading..."
+        val voice = kokoroVoice()
+        _ttsStatus.value = "loading ($voice)…"
         runCatching {
-            val eng = KokoroTtsEngine(this, dir.absolutePath)
+            val eng = KokoroTtsEngine(this, dir.absolutePath, voice)
             eng.load()
             kokoro = eng
-            _ttsStatus.value = "ready (am_adam)"
+            _ttsStatus.value = "ready ($voice)"
         }.onFailure {
             Log.e(TAG, "Kokoro load failed", it)
             _ttsStatus.value = "load failed: ${it.javaClass.simpleName}: ${it.message}"

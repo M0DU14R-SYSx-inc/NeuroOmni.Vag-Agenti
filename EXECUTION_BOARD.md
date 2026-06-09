@@ -274,6 +274,27 @@ acceptance:
     NPU answers questions with that skill's info in scope.
 ```
 
+### M1.7 — Kokoro voice pack (all 55 voices + picker)
+
+```yaml
+status: DONE
+claimed_by: null
+difficulty: 1
+depends_on: []
+files:
+  - horizons/src/main/java/com/horizons/model/KokoroDownloader.kt
+  - horizons/src/main/java/com/horizons/HorizonsApplication.kt
+  - horizons/src/main/java/com/horizons/ui/panels/RouterPanel.kt
+notes: |
+  Ships all 55 voices in one Kokoro download (~28 MB extra, ~108 MB
+  total). Voice picker dropdown in Router → TTS section. Voice
+  preference persisted in CredentialStore at `kokoro.voice`.
+  Switching is instant (release + reload, no re-download). Reads
+  selected voice in HorizonsApplication.tryLoadTts(). Done before
+  M1.2 lands so when Kokoro synth is wired, the picker's already
+  there.
+```
+
 ---
 
 ## Layer 2 — Watchdog backend router
