@@ -11,21 +11,49 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.coroutineContext
 
 /**
- * Downloads onnx-community/Kokoro-82M-v1.0-ONNX (q8f16 model + am_adam voice).
- * ~87 MB. Lands flat in filesDir/models/kokoro/.
+ * Downloads onnx-community/Kokoro-82M-v1.0-ONNX (q8f16 model + all 55 voices).
+ * ~108 MB total: model ~80 MB + 55 voices × ~510 KB = ~28 MB. Lands flat in
+ * filesDir/models/kokoro/. Voice picker in Router selects which voice
+ * KokoroTtsEngine uses; switching is instant (no re-download).
  */
 object KokoroDownloader {
     private const val REPO = "onnx-community/Kokoro-82M-v1.0-ONNX"
     const val MODEL_DIR_NAME = "kokoro"
     const val DEFAULT_VOICE = "am_adam"
 
+    /** All 55 voices that ship with Kokoro v1.0. Naming convention:
+     *  <lang><gender>_<name>. lang: a=American English, b=British English,
+     *  e=Spanish, f=French, h=Hindi, i=Italian, j=Japanese, p=Portuguese,
+     *  z=Mandarin. gender: f=female, m=male. (The bare "af" is the
+     *  Kokoro authors' default-american-female blend.) */
+    val ALL_VOICES = listOf(
+        // American English (11 female + 9 male)
+        "af", "af_alloy", "af_aoede", "af_bella", "af_heart", "af_jessica",
+        "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah", "af_sky",
+        "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam",
+        "am_michael", "am_onyx", "am_puck", "am_santa",
+        // British English (4 female + 4 male)
+        "bf_alice", "bf_emma", "bf_isabella", "bf_lily",
+        "bm_daniel", "bm_fable", "bm_george", "bm_lewis",
+        // Spanish / French / Hindi / Italian / Portuguese
+        "ef_dora", "em_alex", "em_santa",
+        "ff_siwis",
+        "hf_alpha", "hf_beta", "hm_omega", "hm_psi",
+        "if_sara", "im_nicola",
+        "pf_dora", "pm_alex", "pm_santa",
+        // Japanese
+        "jf_alpha", "jf_gongitsune", "jf_nezumi", "jf_tebukuro", "jm_kumo",
+        // Mandarin
+        "zf_xiaobei", "zf_xiaoni", "zf_xiaoxiao", "zf_xiaoyi",
+        "zm_yunjian", "zm_yunxi", "zm_yunxia", "zm_yunyang",
+    )
+
     private val FILES = listOf(
         "config.json",
         "tokenizer.json",
         "tokenizer_config.json",
         "onnx/model_q8f16.onnx",
-        "voices/$DEFAULT_VOICE.bin"
-    )
+    ) + ALL_VOICES.map { "voices/$it.bin" }
 
     data class Progress(val fileIndex: Int, val fileCount: Int, val currentFile: String, val fraction: Float?)
 

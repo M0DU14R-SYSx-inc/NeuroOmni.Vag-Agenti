@@ -173,10 +173,10 @@ fun RouterPanel(modifier: Modifier = Modifier) {
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
         // ====== Kokoro TTS ======
-        Text("TTS — Kokoro (am_adam)", style = MaterialTheme.typography.titleMedium)
+        Text("TTS — Kokoro (~108 MB w/ all 55 voices)", style = MaterialTheme.typography.titleMedium)
         Text("Status: $ttsStatus")
         OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
-            busy = true; line = "Downloading Kokoro (~87 MB)..."
+            busy = true; line = "Downloading Kokoro (~108 MB)..."
             app.scope.launch {
                 runCatching {
                     KokoroDownloader.download(ctx) { p ->
@@ -187,6 +187,35 @@ fun RouterPanel(modifier: Modifier = Modifier) {
                 busy = false
             }
         }) { Text("Download Kokoro TTS") }
+
+        // Voice picker — visible once Kokoro is staged. Switch is instant
+        // (just unloads/reloads the in-memory engine; no re-download).
+        if (com.horizons.model.KokoroDownloader.installedDir(ctx) != null) {
+            var voiceMenuOpen by remember { mutableStateOf(false) }
+            val currentVoice = remember(ttsStatus) { app.kokoroVoice() }
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Voice: ", modifier = Modifier.padding(end = 4.dp))
+                androidx.compose.foundation.layout.Box {
+                    OutlinedButton(onClick = { voiceMenuOpen = true }) {
+                        Text(currentVoice)
+                        androidx.compose.material3.Icon(
+                            androidx.compose.material.icons.Icons.Filled.ArrowDropDown, "pick voice"
+                        )
+                    }
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = voiceMenuOpen,
+                        onDismissRequest = { voiceMenuOpen = false }
+                    ) {
+                        com.horizons.model.KokoroDownloader.ALL_VOICES.forEach { v ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(v) },
+                                onClick = { app.setKokoroVoice(v); voiceMenuOpen = false }
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
