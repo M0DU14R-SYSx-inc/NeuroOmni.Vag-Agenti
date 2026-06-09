@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Slate-gray backdrop with a soft teal radial bloom in the upper left.
+     Placeholder for the operator's liquid-marble wallpaper bitmap. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:type="radial"
+        android:gradientRadius="800"
+        android:centerX="0.35"
+        android:centerY="0.25"
+        android:startColor="#1F4A55"
+        android:centerColor="#243038"
+        android:endColor="#1A242B" />
+</shape>

@@ -4,6 +4,9 @@ build/
 */build/
 !gradle/wrapper/gradle-wrapper.jar
 
+# Claude Code session state (agent worktrees, local settings)
+.claude/
+
 # Android Studio / IntelliJ
 .idea/
 *.iml
@@ -13,10 +16,16 @@ captures/
 # Local config & secrets (NEVER commit keys — see Architecture §12)
 local.properties
 *.keystore
+!app/debug.keystore
+!release/debug.keystore
 *.jks
 google-services.json
 service-account*.json
 secrets.properties
+
+# On-device model weights — never committed (Architecture §4 / §7)
+*.nexa
+*.gguf
 
 # OS
 .DS_Store

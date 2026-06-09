@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Loopback WS to Watchdog + cloud backends in provider library. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Moonshine STT. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Floating tiles + dictation/meta-prompt overlay. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- Foreground service survival. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- Resurrect after reboot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Screen-ask tile capture target. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <!-- Outbound Termux bridge: fire shell commands via com.termux.RUN_COMMAND. -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+
+    <!-- Android 11+ package visibility for outbound bridges. -->
+    <queries>
+        <package android:name="com.termux" />
+        <package android:name="net.dinglisch.android.taskerm" />
+    </queries>
+
+    <application
+        android:name=".HorizonsApplication"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@style/Theme.Horizons"
+        android:allowBackup="false"
+        tools:targetApi="35">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.Horizons">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Floating overlay service (hosts all draggable tiles). -->
+        <service
+            android:name=".overlay.FloatingOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="floating_tiles" />
+        </service>
+
+        <!-- MediaProjection foreground service for screen-ask capture (API 34+ requirement). -->
+        <service
+            android:name=".screen.ScreenCaptureService"
+            android:foregroundServiceType="mediaProjection"
+            android:exported="false" />
+
+        <!-- Custom IME: in-field dictation + meta-prompt + bash. -->
+        <service
+            android:name=".ime.HorizonsImeService"
+            android:exported="true"
+            android:label="@string/ime_label"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/ime_method" />
+        </service>
+
+        <!-- Accessibility: floating-tile text injection into any app. -->
+        <service
+            android:name=".accessibility.HorizonsAccessibilityService"
+            android:exported="true"
+            android:label="@string/accessibility_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- Quick Settings tile for Screen-ask (notification shade shortcut). -->
+        <service
+            android:name=".tiles.QsScreenAskTile"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_lightbulb"
+            android:label="@string/qs_screen_ask"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- Tasker / Termux / adb am broadcast control surface. -->
+        <receiver
+            android:name=".tasker.HorizonsTaskerReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.horizons.action.RELOAD_ENGINE" />
+                <action android:name="com.horizons.action.IMPORT_FOLDER" />
+                <action android:name="com.horizons.action.SEND_PROMPT" />
+                <action android:name="com.horizons.action.GET_STATUS" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Home-screen chat widget. -->
+        <receiver
+            android:name=".widget.ChatAppWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/chat_widget_info" />
+        </receiver>
+    </application>
+</manifest>

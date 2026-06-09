@@ -1,0 +1,75 @@
+# Horizons sub-agent — high-performance review/builder template.
+#
+# Apply with:
+#
+#   source ~/.config/ant_env
+#   export PATH="$PATH:$(go env GOPATH)/bin"
+#   ant beta:agents create --format raw --transform id < sub-agent.agent.yaml
+#
+# (ant's --system, --tool, --skill, --mcp-server flags are all populated
+# below as a single YAML body; ant consumes top-level YAML keys as if
+# they were flags. The @file:// path is resolved at request time.)
+#
+# Re-deploy a new revision after editing this file:
+#
+#   CURRENT=$(ant beta:agents retrieve --agent-id $AGENT_ID --transform version --format raw)
+#   ant beta:agents update --agent-id $AGENT_ID --version $CURRENT --format raw --transform version < sub-agent.agent.yaml
+
+name: Horizons Sub-Agent Booster
+description: |
+  Reusable sub-agent template for Horizons build/review work. Inherits
+  the same NPU/Nexa/voice/cloud scope as the parent NeuralMash Builder
+  (agent_01RaU3nbhVGcFi9ZRcCinT9r) via the shared horizons-wiki skill,
+  but is sized for short-lived at-bat tasks: implement a layer, then
+  archive. Use a fresh session per at-bat to avoid the "polish own
+  turd" failure loop.
+
+# claude-sonnet-4-6 is the current default per Anthropic's model lineup
+# (Sonnet 4.6 = fast tier, ~$3/$15 per Mtok). For deeper review or
+# multi-file refactor, swap to claude-opus-4-8.
+#
+# model_config object form (not just a string) so we can set
+# max_tokens — the per-response output ceiling. This is a circuit
+# breaker against runaway generation: if a sub-agent goes off-script
+# and starts banging its head against the same problem, the cap
+# stops the bleeding instead of letting it burn through your budget.
+# Session-cumulative burn (across turns) is NOT enforced at the API
+# level — that has to be monitored by the dispatcher and the session
+# archived when it crosses threshold.
+model:
+  id: claude-sonnet-4-6
+  speed: standard
+  max_tokens: 4096
+
+# System prompt source-of-truth — same convention as the parent agent.
+# Edit agents/sub-agent.system.md and re-deploy; do not inline here.
+system: "@file://agents/sub-agent.system.md"
+
+# Cloud sandbox toolset only. No external MCPs (vault not wired yet).
+tools:
+  - type: agent_toolset_20260401
+    configs: []
+    default_config:
+      enabled: true
+      permission_policy:
+        type: always_allow
+
+mcp_servers: []
+
+# Skills are referenced by short name; the host environment resolves
+# them. The horizons-wiki skill (skills/horizons-wiki/SKILL.md) bundles
+# CLAUDE_AT_HORIZONS.md + PROMPT_PREFIX.md as a single cacheable prefix.
+# NOTE: skill upload is a separate flow (ant beta:skills create);
+# this list will be empty until that happens. The wiki content is
+# inlined into the system prompt as a fallback.
+skills: []
+
+# Metadata pairs are upserts on update. Used to track origin so we
+# can correlate sessions back to the source-of-truth in git.
+metadata:
+  wiki_stable: CLAUDE_AT_HORIZONS.md
+  wiki_prefix: PROMPT_PREFIX.md
+  working_branch: main
+  cache_ttl_default: 1h
+  parent_agent_id: agent_01RaU3nbhVGcFi9ZRcCinT9r
+  role: at-bat-subagent

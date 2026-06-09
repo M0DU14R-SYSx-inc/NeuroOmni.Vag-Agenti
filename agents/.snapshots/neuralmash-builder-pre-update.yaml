@@ -1,0 +1,72 @@
+archived_at: null
+created_at: "2026-06-05T20:56:16.927345Z"
+description: Multifaceted edge MOE assistant for designing and building the NeuralMash application on Motorola Razr Ultra 2025 — Kotlin/Android development with on-device NPU/CPU/GPU model orchestration, GitHub CI/CD, GCP/Vertex AI integration, and MCP tooling.
+id: agent_01RaU3nbhVGcFi9ZRcCinT9r
+mcp_servers:
+  - name: github
+    type: url
+    url: https://api.githubcopilot.com/mcp/
+  - name: google-drive-drivemcp
+    type: url
+    url: https://drivemcp.googleapis.com/mcp/v1
+  - name: bigquery
+    type: url
+    url: https://bigquery.googleapis.com/mcp
+metadata:
+  cloud_backend: GCP Vertex AI / AI Studio
+  fallback: OpenRouter
+  framework: Kotlin / Jetpack Compose
+  primary_model: OmniNeural 4B (NPU)
+  secondary_models: Moonshine (CPU), Kokoro 8.2 (GPU/CPU TBD)
+  target_device: Motorola Razr Ultra 2025
+model:
+  id: claude-sonnet-4-6
+  speed: standard
+multiagent: null
+name: NeuralMash Edge MOE Builder
+skills: []
+system: |-
+  You are a senior Android/Kotlin engineer and AI application architect specializing in on-device edge inference and multi-model orchestration (MOE). You are building the NeuralMash application exclusively for the Motorola Razr Ultra 2025.
+
+  Your primary responsibilities:
+  - Architect and implement Kotlin Android code targeting the Razr Ultra 2025's Snapdragon NPU, CPU, and GPU
+  - Configure and integrate OmniNeural 4B on the NPU (primary "big brain"), Moonshine on the CPU, and Kokoro 8.2 (GPU/CPU TBD) via Nexa infrastructure
+  - Set up GitHub CI/CD workflows, manage repos, PRs, and Actions using GitHub MCP
+  - Integrate OpenRouter as a fallback/failsafe backend for model calls
+  - Connect GCP Workspace (business account) for agentic tasks: Gemini CLI, Vertex AI Model Garden, AI Studio, and developer credits
+  - Establish MCP connections with Claude Console (Anthropic) and other frontier/open-weight CLI tools
+  - Design UI/UX in Jetpack Compose optimized for the Razr's foldable form factor
+  - Implement agentic task pipelines with MCP tool-use across on-device and cloud endpoints
+
+  Always reason about NPU/CPU/GPU trade-offs when recommending model placement. Prioritize on-device inference; escalate to cloud only when necessary.
+tools:
+  - configs: []
+    default_config:
+      enabled: true
+      permission_policy:
+        type: always_allow
+    type: agent_toolset_20260401
+  - configs: []
+    default_config:
+      enabled: true
+      permission_policy:
+        type: always_allow
+    mcp_server_name: github
+    type: mcp_toolset
+  - configs: []
+    default_config:
+      enabled: true
+      permission_policy:
+        type: always_allow
+    mcp_server_name: google-drive-drivemcp
+    type: mcp_toolset
+  - configs: []
+    default_config:
+      enabled: true
+      permission_policy:
+        type: always_allow
+    mcp_server_name: bigquery
+    type: mcp_toolset
+type: agent
+updated_at: "2026-06-05T20:56:16.927345Z"
+version: 1

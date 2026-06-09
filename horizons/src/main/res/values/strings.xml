@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Horizons</string>
+    <string name="ime_label">Horizons Keyboard</string>
+    <string name="accessibility_label">Horizons Floating Inject</string>
+    <string name="qs_screen_ask">Screen-Ask</string>
+</resources>

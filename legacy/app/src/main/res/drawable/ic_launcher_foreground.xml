@@ -1,0 +1,49 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Setting sun: a glowing disc dipping below the horizon -->
+    <path
+        android:fillColor="#FFB454"
+        android:pathData="M54,46 m-15,0 a15,15 0 1,0 30,0 a15,15 0 1,0 -30,0" />
+
+    <!-- Sun rays -->
+    <group>
+        <path android:strokeColor="#FFB454" android:strokeWidth="2.4" android:strokeLineCap="round" android:pathData="M54,22 V28" />
+        <path android:strokeColor="#FFB454" android:strokeWidth="2.4" android:strokeLineCap="round" android:pathData="M37,29 L41,33" />
+        <path android:strokeColor="#FFB454" android:strokeWidth="2.4" android:strokeLineCap="round" android:pathData="M71,29 L67,33" />
+        <path android:strokeColor="#FFB454" android:strokeWidth="2.4" android:strokeLineCap="round" android:pathData="M28,46 H34" />
+        <path android:strokeColor="#FFB454" android:strokeWidth="2.4" android:strokeLineCap="round" android:pathData="M74,46 H80" />
+    </group>
+
+    <!-- Horizon line (the sun sets across it) -->
+    <path
+        android:strokeColor="#22D3EE"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M26,62 H82" />
+
+    <!-- Cloud drifting in front of the sun -->
+    <path
+        android:fillColor="#7DE9F5"
+        android:pathData="M44,58
+            a7,7 0 0,1 7,-7
+            a8,8 0 0,1 14,2
+            a6,6 0 0,1 0,12
+            H49
+            a6,6 0 0,1 -5,-7 Z" />
+
+    <!-- Reflection / lower waterline -->
+    <path
+        android:strokeColor="#22D3EE"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M34,70 H74" />
+    <path
+        android:strokeColor="#22D3EE"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M40,77 H68" />
+</vector>

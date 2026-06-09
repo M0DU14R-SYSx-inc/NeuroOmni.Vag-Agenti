@@ -1,0 +1,4 @@
+# Copy to local.properties and fill in. Not committed.
+sdk.dir=/path/to/Android/sdk
+# Optional Hugging Face token for gated model downloads (OmniNeural is public).
+hf.token=
