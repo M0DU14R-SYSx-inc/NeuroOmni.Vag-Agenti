@@ -15,7 +15,8 @@
 
 | Milestone | Status | Claimed by | Started |
 |---|---|---|---|
-| — | — | — | — |
+| M1.2 | CLAIMED | Gemini Code Assist | 2026-06-06 |
+| M2.3 | IN_PROGRESS | Opus 4.8 (Claude Code) | 2026-06-09 |
 
 *(Update this table when you claim a milestone. Format: just edit the row,
 commit `chore(board): M1.3 claimed by main`.)*
@@ -93,8 +94,8 @@ notes: |
 ### M1.2 — Real Kokoro TTS inference
 
 ```yaml
-status: AVAILABLE
-claimed_by: null
+status: CLAIMED
+claimed_by: Gemini Code Assist
 difficulty: 4
 depends_on: []
 priority: P0   # operator-locked: voice loop blocker
@@ -305,8 +306,8 @@ L3 cloud routing depends on L2 being alive.*
 ### M2.3 — WsContract message types
 
 ```yaml
-status: AVAILABLE
-claimed_by: null
+status: IN_PROGRESS
+claimed_by: Opus 4.8 (Claude Code)
 difficulty: 1
 depends_on: []
 files:
