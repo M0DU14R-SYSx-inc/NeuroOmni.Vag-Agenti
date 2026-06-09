@@ -55,7 +55,10 @@ class MoonshineSttEngine(
 
         env = OrtEnvironment.getEnvironment()
         val opts = OrtSession.SessionOptions().apply {
-            addCpu(true)
+            // ORT-Android 1.22.0: addCpu() has no boolean arg. CPU EP is
+            // registered by default; we keep it explicit so the FORCED
+            // EXCLUSION discipline (don't addNnapi — steals NPU from Nexa)
+            // is intentional, not accidental.
             setIntraOpNumThreads(2)
             setInterOpNumThreads(1)
             setMemoryPatternOptimization(true)
@@ -145,8 +148,8 @@ class MoonshineSttEngine(
                 val encOutName = enc.outputInfo.keys.first()
                 val audioShape = longArrayOf(1L, audio.size.toLong())
 
-                val hiddenFloats: FloatArray
-                val hiddenShape: LongArray
+                var hiddenFloats: FloatArray = FloatArray(0)
+                var hiddenShape: LongArray = LongArray(0)
                 OnnxTensor.createTensor(ortEnv, FloatBuffer.wrap(audio), audioShape).use { audioTensor ->
                     enc.run(mapOf(encInName to audioTensor)).use { encResult ->
                         val encOut = encResult.get(0) as OnnxTensor
@@ -173,7 +176,8 @@ class MoonshineSttEngine(
                 val hiddenTensor = OnnxTensor.createTensor(ortEnv, FloatBuffer.wrap(hiddenFloats), hiddenShape)
                 try {
                     while (tokens.size < maxLen) {
-                        val seq = tokens.toLongArray()
+                        // List<Int> has no toLongArray(); map to Long explicitly.
+                        val seq = LongArray(tokens.size) { tokens[it].toLong() }
                         val idsBuf = LongBuffer.wrap(seq)
                         val idsShape = longArrayOf(1L, seq.size.toLong())
                         OnnxTensor.createTensor(ortEnv, idsBuf, idsShape).use { idsTensor ->
@@ -244,7 +248,14 @@ class MoonshineSttEngine(
         val table = idToToken ?: return ids.joinToString(",")
         val sb = StringBuilder()
         for (id in ids) {
-            val tok = if (id in table.indices) table[id] else null ?: continue
+            // table is Array<String?>?, table[id] is String? (nullable).
+            // Operator precedence: `if/else` binds tighter than `?:`, so the
+            // original `if (...) table[id] else null ?: continue` ended up as
+            // `if (...) table[id] else (null ?: continue)` which left tok as
+            // String? and broke .startsWith calls below. Pull the null-check
+            // out into its own statement.
+            val raw = if (id in table.indices) table[id] else null
+            val tok: String = raw ?: continue
             // Skip special tokens like <s>, </s>, <pad>, <|...|>
             if (tok.startsWith("<") && tok.endsWith(">")) continue
             if (tok.startsWith("<|") && tok.endsWith("|>")) continue
