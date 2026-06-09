@@ -44,8 +44,12 @@ class MoonshineSttEngine(
     val isLoaded: Boolean get() = encoder != null && decoder != null
 
     suspend fun load() = withContext(Dispatchers.Default) {
-        val encoderFile = File(modelDir, "onnx/encoder_model_int8.onnx")
-        val decoderFile = File(modelDir, "onnx/decoder_model_merged_int8.onnx")
+        // FP32 variants — Snapdragon 8 Elite handles them fine (~237 MB total
+        // download, ~108 MB in-memory). The int8 variants use ConvInteger ops
+        // that ORT-Android's CPU EP doesn't implement (ORT_NOT_IMPLEMENTED at
+        // load time). FP32 uses standard Conv, broadly supported.
+        val encoderFile = File(modelDir, "onnx/encoder_model.onnx")
+        val decoderFile = File(modelDir, "onnx/decoder_model_merged.onnx")
         require(encoderFile.isFile) { "Moonshine encoder missing at $encoderFile" }
         require(decoderFile.isFile) { "Moonshine decoder missing at $decoderFile" }
 

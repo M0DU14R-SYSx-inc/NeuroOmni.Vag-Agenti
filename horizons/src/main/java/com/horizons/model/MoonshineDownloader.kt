@@ -25,8 +25,10 @@ object MoonshineDownloader {
         "special_tokens_map.json",
         "tokenizer.json",
         "tokenizer_config.json",
-        "onnx/encoder_model_int8.onnx",
-        "onnx/decoder_model_merged_int8.onnx"
+        // FP32 (~237 MB total). int8 variants crash at load with
+        // ConvInteger ORT_NOT_IMPLEMENTED on Android CPU EP.
+        "onnx/encoder_model.onnx",
+        "onnx/decoder_model_merged.onnx"
     )
 
     data class Progress(val fileIndex: Int, val fileCount: Int, val currentFile: String, val fraction: Float?)
@@ -89,6 +91,6 @@ object MoonshineDownloader {
         val root = (context.getExternalFilesDir(EdgeModelFactory.MODELS_DIR)
             ?: File(context.filesDir, EdgeModelFactory.MODELS_DIR))
         val dir = File(root, MODEL_DIR_NAME)
-        return if (File(dir, "onnx/encoder_model_int8.onnx").isFile) dir else null
+        return if (File(dir, "onnx/encoder_model.onnx").isFile) dir else null
     }
 }
