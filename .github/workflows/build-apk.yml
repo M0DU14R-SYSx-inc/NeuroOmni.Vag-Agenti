@@ -57,7 +57,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish "latest-debug" release (stable download URL)
-        if: github.ref == 'refs/heads/claude/jolly-lamport-5cJJ4' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest-debug
