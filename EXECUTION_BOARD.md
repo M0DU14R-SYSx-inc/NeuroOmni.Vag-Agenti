@@ -97,32 +97,80 @@ status: AVAILABLE
 claimed_by: null
 difficulty: 4
 depends_on: []
+priority: P0   # operator-locked: voice loop blocker
 files:
   - horizons/src/main/java/com/horizons/model/KokoroTtsEngine.kt
-  - (maybe) new file: horizons/src/main/java/com/horizons/model/KokoroPhonemizer.kt
+  - horizons/src/main/java/com/horizons/model/KokoroPhonemizer.kt  (new)
+  - horizons/src/main/cpp/ + CMakeLists.txt (new — espeak-ng JNI)
+  - horizons/build.gradle.kts (externalNativeBuild block)
 spec: |
-  Replace stub body of KokoroTtsEngine.speak(text, pitch, rate): Unit with
-  real synth + AudioTrack playback.
-  - load(): SessionOptions().apply { addNnapi(NnapiOptions {
-    executionMode = PREFER_SUSTAINED_SPEED }) } so Kokoro lands on QNN GPU
-    via NNAPI. Verify at runtime: session.sessionOptions.executionProviders
-    must contain "NNAPIExecutionProvider", fail loud if it falls back to CPU.
-  - Phonemization: onnx-community/Kokoro-82M-v1.0-ONNX needs phoneme input.
-    Options: (a) port misaki G2P to Kotlin (hard), (b) ship a small phoneme
-    lookup vocab + fallback for unknown, (c) bundle espeak-ng JNI.
-    HARD CHOICE — likely needs split into M1.2a phonemizer + M1.2b synth.
-  - Run inference: input_ids (phoneme tokens) + style (voiceEmbedding) +
-    speed (Float, default 1.0) → audio float32 @ 24kHz.
-  - Stream chunks to AudioTrack as they emit. Honor stopRequested between
-    chunks (for barge-in / mute toggle).
+  OPERATOR-LOCKED DECISION (do not re-litigate): use **espeak-ng via JNI**
+  for phonemization. NOT termux fallback (operator explicitly rejected
+  system-TTS path — voice quality matters). NOT a pure-Kotlin G2P port
+  (too fragile for English edge cases).
+
+  Replace stub body of KokoroTtsEngine.speak(text, pitch, rate): Unit
+  with real synth + AudioTrack playback. Two halves:
+
+  M1.2a — espeak-ng JNI phonemizer (this is the hard part):
+  - Vendor espeak-ng 1.51 source (or a known-good Android port — check
+    https://github.com/numediart/espeak-ng-android or rhasspy/piper variants
+    for prebuilt AARs/CMake setups that don't require building the whole
+    espeak data dictionary on-device).
+  - CMakeLists.txt under horizons/src/main/cpp/ that builds libespeak.so
+    for arm64-v8a only. Add externalNativeBuild block to horizons/build.gradle.kts.
+  - Bundle espeak-ng data files (~3-5 MB) in assets/espeak-ng-data/, extract
+    to filesDir on first use, point ESPEAK_DATA_PATH at that.
+  - KokoroPhonemizer.kt: `phonemize(text: String): IntArray` — calls JNI,
+    returns IPA token IDs matching Kokoro's vocab (see misaki's vocab file
+    if you need the mapping; HF model has phoneme→id in tokenizer.json or
+    similar — verify which file Kokoro v1.0 ships).
+
+  M1.2b — synth + playback:
+  - load(): OrtSession.SessionOptions().apply {
+      addNnapi(NnapiOptions().apply { executionMode = PREFER_SUSTAINED_SPEED })
+    } so Kokoro lands on Adreno GPU via NNAPI→QNN. Verify at runtime via
+    session.sessionOptions.executionProviders — must contain
+    "NNAPIExecutionProvider", fail loud (throw) if it falls back to CPU.
+  - speak() pipeline:
+      text → phonemize() → IntArray phoneme IDs
+      → OnnxTensor input_ids [1, N]
+      + OnnxTensor style [1, 256] (the loaded voiceEmbedding FloatArray)
+      + OnnxTensor speed [scalar] (1.0f default; param `rate` from caller)
+      → session.run(...) → OnnxTensor audio_out float32 @ 24kHz
+      → convert to PCM16 short array (clamp to [-1, 1] then * 32767)
+      → AudioTrack.write() in chunks
+      → honor stopRequested between chunks for barge-in
+  - Reuse the existing newAudioTrack() helper in the file (currently
+    @Suppress("unused")). 24kHz mono PCM16, USAGE_ASSISTANT,
+    CONTENT_TYPE_SPEECH.
+  - Close all OnnxTensor instances after use.
+
 acceptance:
-  - chat reply → speaker plays audio in Kokoro am_adam voice
-  - autospeak toggle (volume icon) silences mid-playback
+  - On reinstall, send a chat prompt → response streams in
+  - Auto-speak fires → Kokoro am_adam voice plays the response
+  - Volume icon (autoSpeak toggle off) silences mid-playback
+  - Diag tab shows "TTS: ready (am_adam, NNAPI)" not "(CPU fallback)"
+
+burn budget:
+  This is genuinely 1-2 days of focused work. Difficulty 4 — recommend
+  flagship model (Opus 4.6+ / GPT-5 / O3). If a Sonnet-class agent tries,
+  expect handoff after M1.2a with phonemizer working and M1.2b still TODO.
+  TermuxTtsClient files (TermuxTtsClient.kt) stay in tree — DO NOT
+  delete — but are NOT the primary path; they're emergency fallback only.
+
 notes: |
-  Phonemization is the actual hard problem. If you can't crack it in
-  one at-bat, hand off after M1.2a (phonemizer only) so M1.2b can be
-  attempted separately. The TermuxTtsClient (system TTS) stays as
-  emergency fallback if M1.2b proves intractable.
+  Reference impl candidates worth looking at first (DON'T reinvent):
+    - mjnong/chatapp-v2 (lighthouse-cited, has Kokoro on QNN GPU working
+      on Snapdragon 8 Elite — but check whether their phonemization is
+      espeak-ng JNI or something else)
+    - hexgrad/kokoro (the original PyTorch repo) for vocab/phoneme mapping
+    - rhasspy/piper-android (uses espeak-ng JNI for TTS — direct precedent)
+
+  Quick sanity check before committing: run a single hardcoded phoneme
+  sequence through session.run() to confirm the model outputs sane audio.
+  If THAT works, the rest is wiring. If it doesn't, the model file or
+  input shape is wrong — fix that first, don't chase phonemization bugs.
 ```
 
 ### M1.3 — `<think>` block parser + collapsible reply UI
