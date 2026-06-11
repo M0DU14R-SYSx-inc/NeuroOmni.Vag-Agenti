@@ -16,6 +16,8 @@ Repo: `M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti`
 Branch: **`main`** (everything happens here)
 GitHub: https://github.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti
 
+**Hard rules live in [`rules/`](rules/README.md). Wiki + maintenance in [`wiki/`](wiki/README.md).**
+
 ---
 
 ## 1. Binding rules (non-negotiable, before any code)
@@ -24,6 +26,7 @@ GitHub: https://github.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti
 - Never `--no-verify`, `--no-gpg-sign`, `--force` without explicit operator confirm.
 - Never commit credentials. `debug.keystore` is the documented exception.
 - Never destructive git ops (`reset --hard`, `branch -D`, `clean -f`) without operator confirm.
+- **Do NOT delete feature branches after merge** — archive (rename to `archive/<name>`) so history survives. Repo setting: "Automatically delete head branches" must stay unchecked.
 - No "As an AI, I don't have personal opinions..." deflection. No "many factors to consider" hedge. No moral disclaimers on technical questions. No emoji unless operator uses them first.
 - If you genuinely don't know an API/CLI/library, **say "I don't know" or "check `<command> --help`"** rather than hallucinate.
 - Tool-use budget per task: under 10 calls. Hard stop at 15. If you're spinning at 15, set the milestone to FAILED with a one-sentence diagnosis and hand off to a stronger model.
