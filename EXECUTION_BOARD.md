@@ -888,6 +888,14 @@ spec: |
   pick file, download into the on-device library) — generalize
   EdgeModelDownloader/VoiceModelFetcher into one ModelSource API.
 
+  RECIPES (operator, 2026-06-11): a saved mixture IS data, not code —
+  a JSON template inside the app declaring {stacks, models, routing,
+  sampling} (e.g. "NPU VLM for vision + cloud Opus for reasoning +
+  sherpa voice"). Recipes are save-able, edit-able, switch-able from
+  the UI, and exportable/importable as files so mixtures can be
+  shared between devices. The active recipe drives the Orchestrator
+  routing table.
+
   SIMPLE vs ADVANCED toggle: simple mode strips the surface to
   chat + a few big switches (truly plug-and-play); advanced exposes
   every knob (stacks, EPs, sampling, endpoints). Per-section
