@@ -3,6 +3,7 @@ package com.horizons
 import android.app.Application
 import android.util.Log
 import com.horizons.ipc.WatchdogWsClient
+import com.horizons.logging.CrashRecorder
 import com.horizons.model.EdgeModel
 import com.horizons.model.EdgeModelFactory
 import com.horizons.model.KokoroDownloader
@@ -75,9 +76,9 @@ class HorizonsApplication : Application() {
 
     val audioRecorder: AudioRecorder by lazy { AudioRecorder(this) }
     val micController: MicCaptureController by lazy {
-        MicCaptureController(this, audioRecorder) { moonshine }
+        MicCaptureController(this, audioRecorder, { moonshine }, { tryLoadStt() })
     }
-    val speaker: SpeakerPlayer by lazy { SpeakerPlayer { kokoro } }
+    val speaker: SpeakerPlayer by lazy { SpeakerPlayer({ kokoro }, { tryLoadTts() }) }
     val tasker: TaskerBridge by lazy { TaskerBridge(this) }
     val screenshotCapture: ScreenshotCapture by lazy { ScreenshotCapture(this) }
 
@@ -107,6 +108,11 @@ class HorizonsApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // FIRST thing — install before any other code can throw. Native
+        // crashes from sherpa/Nexa take the app down with no Java exception
+        // and the operator has no adb; this leaves a file the next launch
+        // can surface in Diagnostics.
+        CrashRecorder.install(this)
         credentials = CredentialStore(this)
 
         // Set NEXA_TOKEN env var BEFORE any SDK init. Per Nexa docs the token is
@@ -136,9 +142,16 @@ class HorizonsApplication : Application() {
         } else {
             _engineStatus.value = "no model staged"
         }
-        // STT/TTS — load in background if files are staged.
-        scope.launch { tryLoadStt() }
-        scope.launch { tryLoadTts() }
+        // STT/TTS — DO NOT auto-load on startup. Three large engines
+        // resident (Nexa VLM + Moonshine + Kokoro) was crashing the app
+        // on first chat. Voice engines now load lazily on first use:
+        // MicCaptureController triggers tryLoadStt() on first mic tap,
+        // SpeakerPlayer triggers tryLoadTts() on first auto-speak.
+        // Update the surface status so the user can see they're idle.
+        _sttStatus.value = if (MoonshineDownloader.installedDir(this) != null)
+            "staged (loads on first mic)" else "not staged"
+        _ttsStatus.value = if (KokoroDownloader.installedDir(this) != null)
+            "staged (loads on first speak)" else "not staged"
     }
 
     fun engine(): EdgeModel = edge
@@ -226,6 +239,7 @@ class HorizonsApplication : Application() {
     }
 
     suspend fun tryLoadStt() {
+        if (moonshine?.isLoaded == true) return   // idempotent — first-use callers can race
         val dir = MoonshineDownloader.installedDir(this) ?: run {
             _sttStatus.value = "not staged"; return
         }
@@ -262,6 +276,7 @@ class HorizonsApplication : Application() {
     }
 
     suspend fun tryLoadTts() {
+        if (kokoro?.isLoaded == true) return   // idempotent — first-use callers can race
         val dir = KokoroDownloader.installedDir(this) ?: run {
             _ttsStatus.value = "not staged"; return
         }

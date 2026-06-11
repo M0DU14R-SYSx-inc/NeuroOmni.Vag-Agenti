@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 
 class SpeakerPlayer(
     private val ttsSupplier: () -> com.horizons.model.KokoroTtsEngine?,
+    private val ttsLazyLoad: suspend () -> Unit = {},
 ) {
     sealed class State {
         object Idle : State()
@@ -24,6 +25,10 @@ class SpeakerPlayer(
 
     suspend fun speak(text: String): Result<Unit> {
         if (text.isEmpty()) return Result.success(Unit)
+        // Lazy-load on first auto-speak: see HorizonsApplication.onCreate.
+        if (ttsSupplier()?.isLoaded != true) {
+            runCatching { ttsLazyLoad() }
+        }
         val engine = ttsSupplier()
         if (engine == null) {
             _state.value = State.Error("Kokoro not loaded")
