@@ -94,3 +94,20 @@ web.
   - 2026-06: recommended service-account JSON as alternative to
     device-code flow.
 - Status: open pending operator GCP console clean-up.
+
+### App surface — phantom saves + 20% response rate (operator audit 2026-06-11)
+- Opened: 2026-06-11 by operator (device testing)
+- Symptoms (verbatim): saved settings revert on screen switch ("says
+  it's loaded but it's not"); Nexa key must be re-entered repeatedly;
+  model responds ~20% of the time; screenshot + screen share dead;
+  settings placeholder; no terminal UI; Router buttons cryptic
+  (HF/Files/Folder/VLM); chat surface unusable.
+- Root-cause hypotheses: KeyRow holds remember{}'d local value+saved
+  flags (no single source of truth) → phantom saves; response rate
+  needs Orchestrator instrumentation before diagnosis.
+- Attempts:
+  - 2026-06-11 (side-panel agent): speced Layer 6 overhaul on the
+    EXECUTION_BOARD (M6.1 persistent state engine, M6.2 three-layer
+    control plane, M6.3 theme, M6.4 chat rebuild, M6.5 reliability
+    triage). Implementation queued for next at-bat.
+- Status: open — M6.x milestones AVAILABLE, M6.1/M6.5 are P0.
