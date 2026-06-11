@@ -832,6 +832,72 @@ acceptance: 10 consecutive chat sends -> 10 replies (cloud fallback
   allowed); screenshot attach works.
 ```
 
+### M6.6 — Settings architecture: per-layer + global (operator addendum)
+
+```yaml
+status: AVAILABLE
+priority: P0
+difficulty: 3
+depends_on: [M6.1]
+spec: |
+  Settings exist at TWO levels (operator design, 2026-06-11):
+
+  PER-LAYER settings — each Layer A/B/C card has its own gear:
+    - On-device model card: inference params (temperature, top_p,
+      max tokens, thinking on/off), context size, EP/thread knobs.
+    - Cloud provider card: endpoint, model list, per-model sampling
+      defaults, spend caps.
+    - Terminal agent card: launch args, working dir, env.
+
+  GLOBAL app settings (replaces the placeholder Settings tab):
+    - Voice: STT model picker, TTS model + voice picker, speed,
+      auto-speak default.
+    - Vision: which model handles images/screenshots (NOT everything
+      is a VLM — vision routing is explicit, never assumed).
+    - Inference: global sampling presets the per-model params inherit
+      from — "conservative / balanced / verbose" style presets plus
+      raw temperature etc. for advanced mode.
+    - Cloud: default failover order, API vs library-load preference.
+    - Storage: on-device model library manager — list, size, DELETE
+      staged models to reclaim space.
+  All persisted via M6.1 AppStateStore.
+acceptance:
+  - change temperature preset -> next reply reflects it
+  - delete a staged model from Storage -> space reclaimed, card
+    status flips to absent
+```
+
+### M6.7 — Runtime stacks + plug-and-play simple/advanced mode
+
+```yaml
+status: AVAILABLE
+difficulty: 4
+depends_on: [M6.2]
+spec: |
+  STACKS (operator concept): the Nexa NPU stack is just ONE runtime.
+  The control plane treats runtimes as swappable stacks:
+    - Nexa stack (NPU, current)
+    - llama.cpp stack (GGUF on CPU/GPU)
+    - OpenAI-compatible stack (any /v1/chat/completions endpoint)
+    - sherpa voice stack (already landed)
+  Models declare which stack runs them; some compose (MoE mixtures,
+  VLM + text stacked). Adding a stack must not require UI changes —
+  cards render from a stack registry.
+
+  SOURCES: first-class HF Hub + GitHub-releases pull (search repo,
+  pick file, download into the on-device library) — generalize
+  EdgeModelDownloader/VoiceModelFetcher into one ModelSource API.
+
+  SIMPLE vs ADVANCED toggle: simple mode strips the surface to
+  chat + a few big switches (truly plug-and-play); advanced exposes
+  every knob (stacks, EPs, sampling, endpoints). Per-section
+  visibility toggles so the operator can hide what they never use.
+acceptance:
+  - toggle simple mode -> only chat + essentials visible, state kept
+  - add an OpenAI-compatible endpoint in advanced mode -> appears as
+    a routable backend in chat with zero code change
+```
+
 ---
 
 ## Cross-layer dependency map
