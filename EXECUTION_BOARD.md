@@ -15,7 +15,8 @@
 
 | Milestone | Status | Claimed by | Started |
 |---|---|---|---|
-| M1.2 | CLAIMED | Gemini Code Assist | 2026-06-06 |
+| M1.1 | DONE (sherpa rewrite, device-verify pending) | side-panel agent | 2026-06-11 |
+| M1.2 | DONE (sherpa rewrite, device-verify pending) | side-panel agent | 2026-06-11 |
 | M2.3 | IN_PROGRESS | Opus 4.8 (Claude Code) | 2026-06-09 |
 
 *(Update this table when you claim a milestone. Format: just edit the row,
@@ -58,8 +59,14 @@ prereqs.*
 
 ### M1.1 — Real Moonshine STT inference
 
+> **2026-06-11 RESOLUTION**: rewritten on **sherpa-onnx OfflineRecognizer**
+> (Moonshine base int8, ~250 MB sherpa archive). The spec below describes
+> the abandoned hand-rolled ORT path — kept for history. See
+> `wiki/FAILURE_LOG.md` + `wiki/FORK_DECISIONS.md` ("Voice runtime").
+> Device verification pending: tap mic → speak → transcript appears.
+
 ```yaml
-status: DONE
+status: DONE   # sherpa-onnx rewrite 2026-06-11; on-device verify pending
 claimed_by: null
 difficulty: 3
 depends_on: []
@@ -93,9 +100,19 @@ notes: |
 
 ### M1.2 — Real Kokoro TTS inference
 
+> **2026-06-11 RESOLUTION**: rewritten on **sherpa-onnx OfflineTts**
+> (kokoro-multi-lang-v1_0, 53 voices, espeak-ng data bundled in the
+> archive — the M1.2a JNI phonemizer below became unnecessary). The
+> operator-locked "espeak-ng, not Termux" decision is honored: sherpa
+> runs espeak-ng natively. NNAPI/GPU half of M1.2b intentionally NOT
+> done — sherpa runs provider=cpu per FORCED EXCLUSION; GPU is a fork
+> criterion in `wiki/FORK_DECISIONS.md`. Spec kept for history.
+> Device verification pending: chat reply → am_adam speaks, volume
+> toggle barge-in works.
+
 ```yaml
-status: CLAIMED
-claimed_by: Gemini Code Assist
+status: DONE   # sherpa-onnx rewrite 2026-06-11; on-device verify pending
+claimed_by: null   # was: Gemini Code Assist (claim superseded by rewrite)
 difficulty: 4
 depends_on: []
 priority: P0   # operator-locked: voice loop blocker

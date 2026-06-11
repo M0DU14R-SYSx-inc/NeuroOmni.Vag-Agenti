@@ -157,7 +157,7 @@ fun RouterPanel(modifier: Modifier = Modifier) {
         Text("STT — Moonshine", style = MaterialTheme.typography.titleMedium)
         Text("Status: $sttStatus")
         OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
-            busy = true; line = "Downloading Moonshine (~67 MB)..."
+            busy = true; line = "Downloading Moonshine (~250 MB, sherpa int8)..."
             // app.scope is SupervisorJob on the Application — survives tab
             // switches. Using rememberCoroutineScope() cancelled the
             // download the moment the user navigated away from Router.
@@ -175,10 +175,10 @@ fun RouterPanel(modifier: Modifier = Modifier) {
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
         // ====== Kokoro TTS ======
-        Text("TTS — Kokoro (~108 MB w/ all 55 voices)", style = MaterialTheme.typography.titleMedium)
+        Text("TTS — Kokoro (~349 MB w/ all 53 voices)", style = MaterialTheme.typography.titleMedium)
         Text("Status: $ttsStatus")
         OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
-            busy = true; line = "Downloading Kokoro (~108 MB)..."
+            busy = true; line = "Downloading Kokoro (~349 MB, sherpa v1.0)..."
             app.scope.launch {
                 runCatching {
                     KokoroDownloader.download(ctx) { p ->

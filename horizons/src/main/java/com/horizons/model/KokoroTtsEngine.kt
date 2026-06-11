@@ -1,76 +1,120 @@
 package com.horizons.model
 
-import ai.onnxruntime.OrtEnvironment
-import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioTrack
 import android.util.Log
+import com.k2fsa.sherpa.onnx.OfflineTts
+import com.k2fsa.sherpa.onnx.OfflineTtsConfig
+import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig
+import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Kokoro on-device TTS using ONNX Runtime Android.
+ * Kokoro on-device TTS via sherpa-onnx OfflineTts.
  *
- * Model: onnx-community/Kokoro-82M-v1.0-ONNX, q8f16 variant.
- * Default voice: am_adam (operator pick).
+ * The blocker the previous engine died on — phonemization — is handled
+ * inside sherpa: the model archive ships espeak-ng-data and the native
+ * layer runs text -> phonemes -> token ids itself. We hand it a string
+ * and get back float32 PCM @ 24 kHz.
  *
- * Phase 4: load session + voice loading wired. Phonemize + decode loop are
- * best-effort placeholders awaiting on-device tuning.
+ * All 53 voices live in one voices.bin; the voice is just the speaker id
+ * passed to generate(), so the Router picker switch is instant and does
+ * not even require an engine reload (kept anyway for status surfacing).
+ *
+ * EP: CPU (provider="cpu") — FORCED EXCLUSION from NNAPI/HTP; the NPU
+ * belongs to Nexa OmniNeural-4B. GPU offload, if ever needed, is a
+ * sherpa rebuild question, not an app code change.
  */
 class KokoroTtsEngine(
     private val context: Context,
     private val modelDir: String,
     private val voiceName: String = KokoroDownloader.DEFAULT_VOICE
 ) {
-    private var env: OrtEnvironment? = null
-    private var session: OrtSession? = null
-    private var voiceEmbedding: FloatArray? = null
+    private var tts: OfflineTts? = null
     @Volatile private var stopRequested = false
     private var audioTrack: AudioTrack? = null
 
-    val isLoaded: Boolean get() = session != null && voiceEmbedding != null
+    val isLoaded: Boolean get() = tts != null
 
     suspend fun load() = withContext(Dispatchers.Default) {
-        val modelFile = File(modelDir, "onnx/model_q8f16.onnx")
-        val voiceFile = File(modelDir, "voices/$voiceName.bin")
-        require(modelFile.isFile) { "Kokoro model missing at $modelFile" }
-        require(voiceFile.isFile) { "Kokoro voice $voiceName missing at $voiceFile" }
+        val dir = File(modelDir)
+        val model = File(dir, "model.onnx")
+        require(model.isFile) { "Kokoro model missing at $model" }
 
-        env = OrtEnvironment.getEnvironment()
-        val opts = OrtSession.SessionOptions().apply {
-            setIntraOpNumThreads(4)
-            setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-            // Phase 4: enable QNN EP for Adreno GPU acceleration once ORT-QNN package
-            // is in the deps. addExecutionProvider_QNN(...) — until then CPU is fine.
-        }
-        session = env!!.createSession(modelFile.absolutePath, opts)
+        // Optional extras in the multi-lang archive; pass only what exists.
+        val lexicon = listOf("lexicon-us-en.txt", "lexicon-zh.txt")
+            .map { File(dir, it) }.filter { it.isFile }
+            .joinToString(",") { it.absolutePath }
+        val dictDir = File(dir, "dict").takeIf { it.isDirectory }?.absolutePath ?: ""
 
-        // Voice files are flat float32 arrays of style embeddings.
-        val bytes = voiceFile.readBytes()
-        val floats = FloatArray(bytes.size / 4)
-        java.nio.ByteBuffer.wrap(bytes)
-            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
-            .asFloatBuffer().get(floats)
-        voiceEmbedding = floats
-        Log.i(TAG, "Kokoro loaded: model=${modelFile.length()}B voice=$voiceName (${floats.size} floats)")
+        val config = OfflineTtsConfig(
+            model = OfflineTtsModelConfig(
+                kokoro = OfflineTtsKokoroModelConfig(
+                    model = model.absolutePath,
+                    voices = File(dir, "voices.bin").absolutePath,
+                    tokens = File(dir, "tokens.txt").absolutePath,
+                    dataDir = File(dir, "espeak-ng-data").absolutePath,
+                    lexicon = lexicon,
+                    dictDir = dictDir,
+                ),
+                numThreads = 2,
+                provider = "cpu",
+            ),
+        )
+        tts = OfflineTts(assetManager = null, config = config)
+        Log.i(TAG, "Kokoro (sherpa) loaded: voice=$voiceName sid=${KokoroDownloader.sidOf(voiceName)} " +
+            "speakers=${tts!!.numSpeakers()} rate=${tts!!.sampleRate()}")
     }
 
+    /**
+     * Synthesize and play. Suspends until playback finishes or [stop] is
+     * called. Synthesis is chunk-streamed: sherpa invokes the callback per
+     * generated sentence-chunk and we feed AudioTrack as chunks arrive, so
+     * first audio is heard long before the full text is synthesized.
+     * Returning 0 from the callback aborts generation (barge-in).
+     */
     suspend fun speak(text: String, pitch: Float = 1f, rate: Float = 1f) =
         withContext(Dispatchers.Default) {
-            require(isLoaded) { "KokoroTtsEngine not loaded" }
+            val engine = tts ?: error("KokoroTtsEngine not loaded")
+            if (text.isBlank()) return@withContext
             stopRequested = false
-            // TODO Phase 4: full pipeline:
-            //   1. Phonemize text (espeak-ng wrapper or G2P model)
-            //   2. Convert phonemes to token IDs via tokenizer.json
-            //   3. session.run(inputs = {input_ids, style: voiceEmbedding, speed})
-            //   4. Get float32 audio @ 24kHz, stream chunks to AudioTrack
-            //   5. Honor stopRequested between chunks (barge-in)
-            Log.i(TAG, "[kokoro: '$text' — synth not yet wired]")
+            val track = newAudioTrack(engine.sampleRate())
+            try {
+                engine.generateWithCallback(
+                    text = text,
+                    sid = KokoroDownloader.sidOf(voiceName),
+                    speed = rate,
+                ) { samples ->
+                    if (stopRequested) return@generateWithCallback 0
+                    writePcm(track, samples)
+                    if (stopRequested) 0 else 1
+                }
+                if (!stopRequested) {
+                    // Drain: AudioTrack buffers ~hundreds of ms past the last write.
+                    runCatching { track.stop() } // play out then stop
+                }
+            } finally {
+                runCatching { track.release() }
+                if (audioTrack === track) audioTrack = null
+            }
         }
+
+    private fun writePcm(track: AudioTrack, samples: FloatArray) {
+        // float [-1,1] -> PCM16. Blocking write paces us to playback speed.
+        val pcm = ShortArray(samples.size) {
+            (samples[it].coerceIn(-1f, 1f) * 32767f).toInt().toShort()
+        }
+        var off = 0
+        while (off < pcm.size && !stopRequested) {
+            val n = track.write(pcm, off, pcm.size - off)
+            if (n <= 0) break
+            off += n
+        }
+    }
 
     fun stop() {
         stopRequested = true
@@ -80,12 +124,11 @@ class KokoroTtsEngine(
     fun release() {
         stop()
         runCatching { audioTrack?.release() }; audioTrack = null
-        runCatching { session?.close() }; session = null
-        voiceEmbedding = null
+        runCatching { tts?.release() }; tts = null
     }
 
-    @Suppress("unused")
-    private fun newAudioTrack(sampleRate: Int = 24_000): AudioTrack {
+    private fun newAudioTrack(sampleRate: Int): AudioTrack {
+        runCatching { audioTrack?.release() }
         val bufSize = AudioTrack.getMinBufferSize(
             sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT
         )

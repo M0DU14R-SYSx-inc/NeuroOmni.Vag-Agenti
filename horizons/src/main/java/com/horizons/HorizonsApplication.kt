@@ -81,8 +81,8 @@ class HorizonsApplication : Application() {
     val tasker: TaskerBridge by lazy { TaskerBridge(this) }
     val screenshotCapture: ScreenshotCapture by lazy { ScreenshotCapture(this) }
 
-    // termux-api voice path — primary going forward, replacing the ORT stubs.
-    // ChatPanel rewire to use these is queued for next session per PROMPT_PREFIX.
+    // termux-api voice path — kept as FALLBACK only. Primary voice in/out is
+    // the sherpa-onnx stack (MoonshineSttEngine + KokoroTtsEngine).
     val termuxTts: com.horizons.audio.TermuxTtsClient by lazy { com.horizons.audio.TermuxTtsClient(this) }
     val termuxStt: com.horizons.audio.TermuxSttClient by lazy { com.horizons.audio.TermuxSttClient(this) }
 

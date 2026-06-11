@@ -32,8 +32,17 @@ web.
   - 2026-06: addCpu(true) overload missing in ORT 1.22.0 → removed.
   - 2026-06: switched int8 → FP32 variant → Kotlin compile errors
     (val/var, toLongArray on List<Int>) fixed in PR #25.
-- Status: open — CPU path may be a dead end. Fork criterion in
-  `FORK_DECISIONS.md`.
+  - 2026-06-11 (side-panel agent): root-cause re-diagnosis — the dead
+    end was the **hand-rolled ORT decode loop** (fake empty
+    past_key_values of wrong rank, input-name guessing, no KV cache),
+    not Moonshine itself. Rewrote MoonshineSttEngine on
+    **sherpa-onnx OfflineRecognizer** (AAR v1.13.2): proper
+    cached/uncached decode, and sherpa's bundled ORT 1.24.3 implements
+    ConvInteger so the int8 model (~250 MB sherpa package) loads.
+    Compile verified; device verify pending.
+- Status: fixed-in-code (sherpa-onnx rewrite) — awaiting on-device
+  verification. Parakeet fallback is now a config swap, not a code
+  rewrite (sherpa OfflineModelConfig supports NeMo transducers).
 
 ### Kokoro TTS — phonemizer + GPU routing
 - Opened: 2026-06
@@ -43,9 +52,36 @@ web.
 - Attempts:
   - 2026-06: locked M1.2 spec to espeak-ng JNI (P0). Implementation
     pending.
-- Status: open — fork criterion: if GPU path stays blocked, run as a
-  node (possibly GPU-pointed) with VoxSherpa voices. See
-  `FORK_DECISIONS.md`.
+  - 2026-06-11 (side-panel agent): espeak-ng JNI port made
+    unnecessary — rewrote KokoroTtsEngine on **sherpa-onnx
+    OfflineTts** (the engine behind VoxSherpa). Phonemization happens
+    inside sherpa's native layer using the espeak-ng-data shipped in
+    the kokoro-multi-lang-v1_0 archive (~349 MB, 53 voices in one
+    voices.bin; voice = speaker id at generate() time, so switching
+    is instant). Streaming playback via generateWithCallback →
+    AudioTrack with barge-in. Compile verified; device verify pending.
+- Status: fixed-in-code (sherpa-onnx rewrite) — awaiting on-device
+  verification. GPU offload deferred: sherpa runs CPU (provider=cpu;
+  FORCED EXCLUSION keeps the NPU exclusive to Nexa). A GPU path is a
+  sherpa rebuild question — fork criterion stays in FORK_DECISIONS.
+
+### Voice stack — three competing libonnxruntime.so copies
+- Opened: 2026-06-11 by side-panel agent
+- Root cause: Nexa AAR (ORT 1.22.0), sherpa-onnx AAR (ORT 1.24.3) and
+  Maven onnxruntime-android each ship lib/arm64-v8a/libonnxruntime.so;
+  pickFirst alone is non-deterministic across AARs. ORT's C API is
+  backward compatible only (old client on new runtime OK, NOT the
+  reverse) — so the single packaged copy MUST be the newest:
+  sherpa's 1.24.3.
+- Attempts:
+  - 2026-06-11: dropped Maven onnxruntime-android (no Java ORT users
+    left after the sherpa rewrite); gradle task `extractSherpaOrt`
+    unpacks sherpa's libonnxruntime.so into the app jniLibs source
+    set, which always wins the packaging merge. Nexa (1.22 client)
+    runs on the 1.24.3 runtime.
+- Status: fixed-in-code — device verify required (Nexa NPU init must
+  still pass on ORT 1.24.3). If Nexa breaks, fallback is rebuilding
+  sherpa against ORT 1.22.0 or isolating sherpa in a separate process.
 
 ### GCP / Hermes API auth
 - Opened: 2026-06
