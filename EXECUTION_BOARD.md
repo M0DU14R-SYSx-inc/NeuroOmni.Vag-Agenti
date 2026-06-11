@@ -706,6 +706,134 @@ acceptance:
 
 ---
 
+## Layer 6 — Control-plane UI overhaul (operator mandate 2026-06-11)
+
+*Operator verdict on the current app: "looks like garbage… nothing works."
+This layer REPLACES the Router/Settings surface. Operator supplied theme
+references: dark navy/black dashboard, neon blue/purple glow accents,
+card-based sections around a central hub motif, status strips along the
+bottom (agents online, task progress, guardrail status). Think
+"AI orchestration hub" sci-fi control plane, not a settings form.*
+
+### M6.1 — Persistent state engine (P0 — blocks everything)
+
+```yaml
+status: AVAILABLE
+priority: P0
+difficulty: 3
+depends_on: []
+files:
+  - horizons/src/main/java/com/horizons/provider/CredentialStore.kt
+  - horizons/src/main/java/com/horizons/state/AppStateStore.kt (new)
+  - horizons/src/main/java/com/horizons/ui/panels/RouterPanel.kt
+spec: |
+  OPERATOR BUG (verbatim): "every time you save something even if you
+  switch screens it defaults back, you have to reload, it'll say it's
+  loaded but it's not… you got to go and upload the NEXA key again,
+  none of that ever saves."
+
+  Root-cause hypothesis: each KeyRow holds remember{}'d local copies of
+  value + saved flag — no single source of truth; recomposition shows
+  stale state, "saved" UI lies about persistence.
+
+  Fix:
+  - AppStateStore: single StateFlow<Map<String,String>> snapshot backed
+    by CredentialStore (creds) + DataStore (non-secret prefs: selected
+    models, voices, endpoints, layout). ALL UI reads flow from here;
+    writes go through it; commit() not apply() for creds.
+  - KeyRow & every picker become stateless: value from the flow,
+    onSave -> store.put() -> flow re-emits -> UI reflects REAL state.
+  - On save of nexa.token: applyNexaToken() + reload, status surfaced.
+acceptance:
+  - save Nexa key -> kill app -> relaunch -> key present, engine inits
+  - switch tabs 5x: every saved field still shows saved value
+```
+
+### M6.2 — Three-layer provider control plane
+
+```yaml
+status: AVAILABLE
+priority: P0
+difficulty: 4
+depends_on: [M6.1]
+spec: |
+  Replace RouterPanel with three clearly-separated sections (operator
+  design, do not re-litigate):
+
+  LAYER A — ON-DEVICE: models living on the phone.
+    - Nexa NPU VLM, Moonshine STT, Kokoro TTS (+ future GGUF/ONNX).
+    - Per-model card: status chip (loaded/staged/absent), dropdown to
+      pick variant/voice, download/import/upload buttons, reload.
+    - Replaces the cryptic HF/Folder/Files/VLM button salad — every
+      control labeled by what it actually does.
+
+  LAYER B — CLOUD/API: pluggable providers.
+    - Anthropic, OpenRouter, Gemini/Vertex, HF inference, custom URL.
+    - Per-provider card: key field (persisted via M6.1), model picker
+      fetched from provider (M3.2), test-ping button (M3.3), enable
+      toggle feeding the Orchestrator routing table.
+
+  LAYER C — TERMINAL/AGENTS: CLIs + agents reachable on-device.
+    - Termux session launcher, installed CLI detection (claude, gemini,
+      gh…), per-agent card with launch/attach, output panel.
+    - This is the missing "terminal interface" — M4.1 folds in here.
+
+  Every section: dropdowns + uploads, state persists (M6.1).
+acceptance:
+  - all three layers visible, scrollable, statuses truthful
+  - kill+relaunch: every selection intact
+```
+
+### M6.3 — Theme + navigation shell (operator reference boards)
+
+```yaml
+status: AVAILABLE
+difficulty: 3
+depends_on: []
+spec: |
+  Dark sci-fi control-plane theme per operator reference images:
+  near-black navy surfaces, neon blue/cyan + purple accent glow,
+  card-based panels with thin glowing borders, monospace status
+  readouts, bottom status strip (engine/STT/TTS/cache health chips).
+  Material3 dynamic color OFF; custom ColorScheme. Bottom nav or rail:
+  Chat / Control Plane / Terminal / Diagnostics / Settings.
+acceptance: side-by-side with reference boards, operator signs off.
+```
+
+### M6.4 — Chat surface rebuild
+
+```yaml
+status: AVAILABLE
+difficulty: 3
+depends_on: [M6.3]
+spec: |
+  Operator: "actual chat interface is trash." Rebuild: message bubbles
+  w/ role styling, streaming token indicator, model/backend chip per
+  reply, copy button, image thumbnails for staged screenshots, voice
+  state (recording/transcribing) inline, error cards w/ retry — not
+  raw "role: text" lines.
+```
+
+### M6.5 — Reliability triage: response rate + capture chain
+
+```yaml
+status: AVAILABLE
+priority: P0
+difficulty: 4
+depends_on: [M6.1]
+spec: |
+  Operator: "model responds maybe 20% of the time", screenshot/screen
+  share dead, settings placeholder. Instrument Orchestrator.stream
+  end-to-end (InteractionLogger): log routing decision, backend tried,
+  failure cause. Surface last-failure on chat error card. Fix the top
+  3 causes found. Verify ScreenCaptureService FGS consent flow on
+  API 35.
+acceptance: 10 consecutive chat sends -> 10 replies (cloud fallback
+  allowed); screenshot attach works.
+```
+
+---
+
 ## Cross-layer dependency map
 
 ```
