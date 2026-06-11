@@ -896,6 +896,14 @@ spec: |
   shared between devices. The active recipe drives the Orchestrator
   routing table.
 
+  STACK PRELOAD (operator, 2026-06-11): activating a recipe doesn't
+  just stage model files — it PRELOADS the declared stacks: runtime
+  init + weights into memory + voice engines warm + cloud cache
+  pre-warmed, so the first request after switching recipes is hot.
+  Recipe cards show per-stack load state (cold / staged / warm) and
+  a one-tap "preload all" with memory budget surfaced (multiple warm
+  stacks must fit RAM — evict LRU stack when over budget).
+
   SIMPLE vs ADVANCED toggle: simple mode strips the surface to
   chat + a few big switches (truly plug-and-play); advanced exposes
   every knob (stacks, EPs, sampling, endpoints). Per-section
