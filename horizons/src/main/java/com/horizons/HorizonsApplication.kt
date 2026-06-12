@@ -26,9 +26,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 class HorizonsApplication : Application() {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -133,6 +135,7 @@ class HorizonsApplication : Application() {
             credentials = credentials,
             library = providerLibrary,
             systemPromptSupplier = { wikiSystemPrompt },
+            awaitEngineReady = { timeoutMs -> awaitEngineReady(timeoutMs) },
         )
 
         edge = StubEdgeModel()
@@ -181,6 +184,25 @@ class HorizonsApplication : Application() {
     }
 
     fun reloadEngineAsync() { scope.launch { reloadEngine() } }
+
+    /**
+     * Suspends until [engineStatus] reaches a terminal state — "ready:" on
+     * success or one of the "fell back" / "no model" sentinels on failure.
+     * Returns whatever the live [edge] is at that point so the caller can
+     * check `is StubEdgeModel` and route accordingly. Falls through to the
+     * current [edge] if the timeout elapses (so a stuck load doesn't hang
+     * the chat path forever).
+     */
+    suspend fun awaitEngineReady(timeoutMs: Long): EdgeModel {
+        withTimeoutOrNull(timeoutMs) {
+            engineStatus.first { s ->
+                s.startsWith("ready:") ||
+                    s.startsWith("fell back") ||
+                    s.startsWith("no model")
+            }
+        }
+        return edge
+    }
 
     /**
      * Read nexa.token from CredentialStore and export it as the NEXA_TOKEN
