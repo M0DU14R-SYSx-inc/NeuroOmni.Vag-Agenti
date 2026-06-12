@@ -154,18 +154,34 @@ class ScreenshotCapture(private val context: Context) {
     }
 
     private fun writePng(bitmap: Bitmap): File {
+        // Nexa NPU's vision encoder dies on full-resolution Razr screenshots
+        // (~1080x2640 → ~14k vision tokens → prefill OOM on NPU). Downscale
+        // to max edge 1024 and save as JPEG q=85 so the file is ~150 KB
+        // and the encoder gets a sane number of patches.
         val dir = File(context.filesDir, "screenshots").apply { mkdirs() }
-        val file = File(dir, "snap_${System.currentTimeMillis()}.png")
+        val file = File(dir, "snap_${System.currentTimeMillis()}.jpg")
+        val scaled = downscale(bitmap, MAX_EDGE)
         FileOutputStream(file).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            scaled.compress(Bitmap.CompressFormat.JPEG, 85, out)
             out.flush()
         }
+        if (scaled !== bitmap) scaled.recycle()
         return file
+    }
+
+    private fun downscale(src: Bitmap, maxEdge: Int): Bitmap {
+        val longest = maxOf(src.width, src.height)
+        if (longest <= maxEdge) return src
+        val scale = maxEdge.toFloat() / longest
+        val w = (src.width * scale).toInt().coerceAtLeast(1)
+        val h = (src.height * scale).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(src, w, h, true)
     }
 
     private fun pruneOldSnapshots(dir: File?, keep: Int) {
         if (dir == null || !dir.isDirectory) return
-        val pngs = dir.listFiles { f -> f.isFile && f.name.startsWith("snap_") && f.name.endsWith(".png") }
+        val pngs = dir.listFiles { f -> f.isFile && f.name.startsWith("snap_") &&
+            (f.name.endsWith(".png") || f.name.endsWith(".jpg")) }
             ?: return
         if (pngs.size <= keep) return
         pngs.sortedByDescending { it.lastModified() }
@@ -173,5 +189,10 @@ class ScreenshotCapture(private val context: Context) {
             .forEach { runCatching { it.delete() } }
     }
 
-    private companion object { const val TAG = "ScreenshotCapture" }
+    private companion object {
+        const val TAG = "ScreenshotCapture"
+        // Max edge for the screenshot fed to the VLM. 1024 = ~6k vision
+        // tokens at 14px patches, well within Nexa NPU's prefill envelope.
+        const val MAX_EDGE = 1024
+    }
 }
