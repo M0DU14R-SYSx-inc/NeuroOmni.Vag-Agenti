@@ -80,7 +80,33 @@ class HorizonsApplication : Application() {
     val micController: MicCaptureController by lazy {
         MicCaptureController(this, audioRecorder, { moonshine }, { tryLoadStt() })
     }
-    val speaker: SpeakerPlayer by lazy { SpeakerPlayer({ kokoro }, { tryLoadTts() }) }
+    /** System TTS bridge — uses VoxSherpa when installed + set as default. */
+    val systemTts: com.horizons.audio.SystemTtsClient by lazy {
+        com.horizons.audio.SystemTtsClient(this)
+    }
+    val speaker: SpeakerPlayer by lazy {
+        SpeakerPlayer(
+            ttsSupplier = { kokoro },
+            ttsLazyLoad = { tryLoadTts() },
+            systemTtsSupplier = { systemTts },
+            preferSystemTts = { isVoxSherpaPreferred() },
+        )
+    }
+
+    /** Operator preference: route TTS through Android's system engine if
+     *  VoxSherpa is installed. Persisted under `tts.prefer_system`. */
+    fun isVoxSherpaPreferred(): Boolean {
+        val installed = com.horizons.audio.SystemTtsClient.isVoxSherpaInstalled(this)
+        val saved = credentials.get("tts.prefer_system")
+        return when (saved) {
+            "true" -> installed
+            "false" -> false
+            else -> installed   // default: prefer if installed
+        }
+    }
+    fun setVoxSherpaPreferred(enabled: Boolean) {
+        credentials.put("tts.prefer_system", enabled.toString())
+    }
     val tasker: TaskerBridge by lazy { TaskerBridge(this) }
     val screenshotCapture: ScreenshotCapture by lazy { ScreenshotCapture(this) }
 

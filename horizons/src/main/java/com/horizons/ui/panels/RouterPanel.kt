@@ -111,8 +111,11 @@ fun RouterPanel(modifier: Modifier = Modifier) {
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // ====== VLM (Nexa NPU) ======
-        Text("VLM — on-device", style = MaterialTheme.typography.titleMedium)
+        // ====== MLLM (Nexa NPU) ======
+        // Operator-correct: OmniNeural-4B is multimodal (text+vision+audio),
+        // not vision-only. Underlying Nexa SDK class is still VlmWrapper but
+        // that's their API naming for all NPU LLMs.
+        Text("MLLM — on-device", style = MaterialTheme.typography.titleMedium)
         Text("Engine: ${app.engine().backendTag}  ($engineStatus)")
         engineError?.let { Text("ENGINE ERROR: $it") }
         Text(status)
@@ -171,6 +174,36 @@ fun RouterPanel(modifier: Modifier = Modifier) {
                 busy = false
             }
         }) { Text("Download Moonshine STT") }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+        // ====== System TTS (VoxSherpa pluggable) ======
+        Text("TTS source", style = MaterialTheme.typography.titleMedium)
+        val voxInstalled = remember {
+            com.horizons.audio.SystemTtsClient.isVoxSherpaInstalled(ctx)
+        }
+        var preferSystem by remember {
+            mutableStateOf(app.isVoxSherpaPreferred())
+        }
+        if (voxInstalled) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                androidx.compose.material3.Switch(
+                    checked = preferSystem,
+                    onCheckedChange = { v -> preferSystem = v; app.setVoxSherpaPreferred(v) }
+                )
+                Text(
+                    "  Use VoxSherpa (system default TTS) — higher quality",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        } else {
+            Text(
+                "VoxSherpa.apk not installed. Install it from Play Store and set " +
+                    "as default TTS engine (System settings → Languages → " +
+                    "Text-to-speech) for upgraded voices. Falls back to in-app Kokoro.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
 

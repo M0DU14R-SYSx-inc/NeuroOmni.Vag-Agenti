@@ -32,6 +32,14 @@
     <queries>
         <package android:name="com.termux" />
         <package android:name="net.dinglisch.android.taskerm" />
+        <!-- VoxSherpa TTS as a third-party engine — detect installation
+             so Router can show the picker. -->
+        <package android:name="com.CodeBySonu.VoxSherpa" />
+        <!-- Generic TTS engine discovery — needed for TextToSpeech to
+             enumerate other engines the operator has installed. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
     </queries>
 
     <application
