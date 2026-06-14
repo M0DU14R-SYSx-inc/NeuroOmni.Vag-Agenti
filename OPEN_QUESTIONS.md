@@ -45,8 +45,15 @@ Rule: closed questions stay (audit trail). Don't delete; move to `## Answered` a
 - **Context:** OmniNeural-4B uses `VlmWrapper.builder()`. The Parakeet
   pattern is unconfirmed. Without the class name + builder shape, G3
   ASR can't compile.
-- **Answer:** —
-- **Status:** open. Plan: grep the Nexa AAR / read Nexa Studio docs.
+- **Answer:** 2026-06-14. Confirmed from `ai.nexa:core:0.0.24` AAR bytecode +
+  multiple production repos. Class: `com.nexa.sdk.AsrWrapper`. Builder chain:
+  `AsrWrapper.builder().asrCreateInput(AsrCreateInput(model_name, model_path,
+  config=ModelConfig(max_tokens, npu_lib_folder_path, npu_model_folder_path),
+  plugin_id="npu")).dispatcher(Dispatchers.IO).build()` → `Result<AsrWrapper>`.
+  Transcribe: `wrapper.transcribe(AsrTranscribeInput(audioPath, "en"))` →
+  `Result<AsrTranscribeOutput>`; text at `out.result.transcript`. No separate
+  `AsrConfig` needed for create — uses shared `ModelConfig`. G3 wired.
+- **Status:** answered.
 
 ## Q3 — Design artifact format + delivery
 

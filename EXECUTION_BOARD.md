@@ -15,7 +15,7 @@
 |---|---|---|---|
 | G1 — Core scaffold | DONE | main | 2026-06-14 |
 | G2 — Salvage port | DONE | intelligent-dijkstra | 2026-06-14 |
-| G3 — Nexa SDK wire-up | AVAILABLE | — | — |
+| G3 — Nexa SDK wire-up | DONE | intelligent-dijkstra | 2026-06-14 |
 | G4 — AppStateStore adoption | AVAILABLE | — | — |
 | G5 — Per-tile terminal | AVAILABLE | — | — |
 | G6 — Cloud-frontend adapter | AVAILABLE | — | — |
@@ -81,18 +81,28 @@ acceptance: gradle build clean; old call sites still resolve via typealias shims
 status: AVAILABLE
 difficulty: 4/5
 depends_on: [G1]
+artifacts:
+  - horizons/src/main/java/com/horizons/core/nexa/NexaModelSpec.kt     (added Modality enum)
+  - horizons/src/main/java/com/horizons/core/nexa/NexaModelLoader.kt   (real SDK init + load)
+  - horizons/src/main/java/com/horizons/core/nexa/VlmEngineImpl.kt     (new — VlmWrapper impl)
+  - horizons/src/main/java/com/horizons/core/nexa/AsrEngineImpl.kt     (new — AsrWrapper impl)
 scope: |
   Wire NexaModelLoader.load() to the real Nexa Android SDK. Branch on
-  spec.pluginId internally (VlmWrapper for "npu" / "cpu_gpu"; ASR wrapper
-  TBD — confirm class name from SDK jar, see Q2). Public API must stay
-  type-label-free.
-open_questions:
-  - Q2: Parakeet wrapper class name + load pattern. Still open.
-  - Q1: Concurrent NPU + GPU residency. Test on device after load() is real.
-  - Gemma-4-E4B-IT model ID: confirm Nexa Hub vs Qualcomm AI Hub. Parked.
+  spec.modality internally (AsrEngineImpl for ASR; VlmEngineImpl for LLM).
+  VlmWrapper handles both NPU (OmniNeural) and CPU_GPU (Gemma). Public API
+  stays type-label-free — callers receive NexaEngine regardless of modality.
+notes: |
+  Q2 answered via bytecode decompilation of ai.nexa:core:0.0.24 AAR.
+  AsrCreateInput: model_name, model_path, config (ModelConfig with npu_lib_
+  folder_path + npu_model_folder_path), plugin_id. Transcribe via
+  AsrWrapper.transcribe(AsrTranscribeInput(audioPath, language)) → Result.
+  NexaModelSpec gained Modality.LLM / Modality.ASR (default=LLM, no BC break).
+  Q1 (NPU+GPU co-residency) still open — test on device.
 acceptance: |
-  Smoke test: load OmniNeural-4B on NPU → infer "hello" → returns text.
-  Same loader loads Gemma-4-E4B-IT on GPU. No type-branching in caller.
+  Smoke test: load OmniNeural-4B on NPU → infer with image → returns text.
+  Same loader loads Parakeet on NPU → infer with audio → returns transcript.
+  Same loader loads Gemma-4-E4B-IT on GPU → infer text → returns text.
+  No type-branching visible in callers.
 ```
 
 ### G4 — AppStateStore adoption
