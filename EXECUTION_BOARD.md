@@ -20,7 +20,10 @@
 | G5 — Per-tile terminal | AVAILABLE | — | — |
 | G6 — Cloud-frontend adapter | AVAILABLE | — | — |
 | G7 — UI scaffold (gated on design) | BLOCKED | — | — |
-| G8 — Legacy deletion | BLOCKED | — | — |
+| G8 — Legacy archive (hard cut) | DONE | opus-4-7 | 2026-06-14 |
+| G9 — Chat tile (text-only) | AVAILABLE | — | — |
+| G10 — Screen Q&A pipeline | AVAILABLE | — | — |
+| G11 — Voice loop (Parakeet + VoxSherpa) | AVAILABLE | — | — |
 
 ## Status flow
 
