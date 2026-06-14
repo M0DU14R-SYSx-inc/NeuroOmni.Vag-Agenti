@@ -7,7 +7,19 @@
 > Format is fixed — do not add sections. Bump dated line + replace the four
 > blocks. Keep total ≤ 1 screen.
 
-**Snapshot:** 2026-06-14 12:32 UTC · branch `claude/jolly-lamport-5cJJ4`
+**Snapshot:** 2026-06-14 17:03 UTC · branch `claude/jolly-lamport-5cJJ4`
+
+> ⚠️ **DEAD STACK — DO NOT REINTRODUCE.** Sub-agents have wandered back to
+> these. Reject any output that names them as live:
+>
+> Moonshine STT · Kokoro TTS · sherpa-onnx · ORT-Android NNAPI delegate ·
+> `EdgeModelFactory` type labels · `Orchestrator` cloud failover ·
+> `ProviderLibrary` · in-app cloud clients · `ChatPanel` mic button ·
+> `KeyRow` `remember{}` phantom-save · `Watchdog` loopback WS.
+>
+> **LIVE STACK:** Parakeet (NPU) + VoxSherpa (system TTS) for voice;
+> OmniNeural-4B (NPU) + Gemma-4-E4B-IT (GPU) for text/vision. Cloud lives
+> in a separate app behind a capability adapter.
 
 ---
 
@@ -33,9 +45,15 @@ after the new core compiles end-to-end and the design agent's UI lands.
   index folders; project-memory skill stood up.
 - Added `DECISIONS.md`, `OPEN_QUESTIONS.md`, `GLOSSARY.md` as cheap-to-load
   secondary references.
-
-**Session halted by operator at this commit — usage credits.** All work
-landed clean: branch pushed, working tree clean, board reflects state.
+- **Doc hardening pass:** SCRAPPED banners on every `.archive/*` file;
+  DEAD STACK block on `SOTU.md` + `PROMPT_PREFIX.md` so sub-agents
+  cannot wander back to Kokoro / Moonshine / sherpa / Orchestrator.
+- **Vision + action pipeline** canonicalized into `CLAUDE_AT_HORIZONS.md`
+  (dual-input MediaProjection + Accessibility tree, in-process
+  OpenAI-compatible HTTP server at `127.0.0.1:1234`, Accessibility
+  Worker Relay for action output).
+- **`rules/AAR_DECOMPILE.md`:** decompile the Nexa AAR before writing SDK
+  code — bytecode is ground truth, scraped docs lie.
 
 ## Build strategy decision (locked here)
 

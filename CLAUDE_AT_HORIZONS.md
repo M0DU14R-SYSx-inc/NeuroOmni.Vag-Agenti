@@ -101,6 +101,101 @@ through Git like normal.
 
 ---
 
+## Vision + action pipeline (canonical flow)
+
+Horizons sees the screen through **two parallel inputs** and emits actions
+through **one output**. Both inputs feed an in-process orchestrator that
+speaks OpenAI-compatible HTTP over `127.0.0.1` — even on-device, even
+though there's no separate daemon. The HTTP layer is what makes the
+Truman Show work: the cloud-frontend app speaks the same surface, so the
+model layer cannot tell local from remote.
+
+```
+[USER ACTIONS / TILE INTERACTION]
+                │
+                ▼
+   [ANDROID FOREGROUND SERVICE RUNTIME]
+   ┌───────────────────────────────────────────────────────────────┐
+   │ [Android MediaProjection API]   [Accessibility Service]       │
+   │           │ RGBA_8888                    │ AccessibilityNode  │
+   │           ▼                              ▼ tree extractor     │
+   │  [ImageReader → JPEG 85%]    [Layout matrix → text]           │
+   │           │                              │                    │
+   │           ▼ base64 frame                 ▼ text payload       │
+   └───────────┬──────────────────────────────┬────────────────────┘
+               │ POST /v1/chat/completions    │ POST /v1/.../merge
+               ▼                              ▼
+   ┌───────────────────────────────────────────────────────────────┐
+   │       LOCALHOST ORCHESTRATION ENGINE  (127.0.0.1:1234)        │
+   │       In-process Ktor server → NexaEngine adapter             │
+   └───────┬───────────────────────────────────────┬───────────────┘
+           │ (1) image buffer                      │ (3) merged text
+           ▼                                       ▼
+   ┌──────────────────────────┐     ┌──────────────────────────────┐
+   │      Hexagon NPU         │     │          Adreno GPU          │
+   │  Nexa SDK plugin=npu     │     │  Nexa SDK plugin=cpu_gpu     │
+   │  OmniNeural-4B           │     │  Gemma-4-E4B-IT (GGUF)       │
+   │  Task: vision facts      │     │  Task: agentic reasoning     │
+   └──────────────┬───────────┘     └──────────────┬───────────────┘
+                  │ (2) structural layout text     │ (4) action JSON
+                  └────────────────┬───────────────┘
+                                   ▼
+                  ┌────────────────────────────────────┐
+                  │   ACCESSIBILITY WORKER RELAY       │
+                  │   Native tap + type via boundary 6 │
+                  └────────────────────────────────────┘
+```
+
+### In-process HTTP, not a daemon
+
+`nexa serve --port` is documented as a separate process on PC/Linux. On
+Android we **do not** spawn a daemon — we embed a Ktor HTTP server
+inside the foreground service that proxies OpenAI-compatible requests
+to in-process `NexaEngine.infer()` / `.stream()` calls. The port is real
+(`127.0.0.1:1234`); the server is a thread, not a process.
+
+Why uniform HTTP at all (instead of just Kotlin function calls):
+
+1. **Truman Show:** the orchestrator code is identical for local vs.
+   cloud. Cloud-frontend app exposes the same OpenAI-compatible surface
+   on a different host. Engine code cannot tell which.
+2. **Hot-swap:** swapping `OmniNeural-4B` ↔ `Gemma-4-E4B-IT` ↔ a cloud
+   model is changing the upstream HTTP target. Nothing downstream knows.
+3. **Per-tile terminal debugging:** operator can `curl 127.0.0.1:1234/v1/models`
+   from any tile's embedded shell. Visible state, not invisible function
+   calls.
+4. **Multi-client:** the IME, Accessibility relay, and chat tile all hit
+   the same in-process server. One inference queue, one cache.
+
+### Dual-input rationale
+
+- **MediaProjection** gives ground-truth pixels for the NPU vision model
+  (OmniNeural-4B). Resolved at 1024px max edge, JPEG q=85, to keep prefill
+  under NPU OOM (see `wiki/FAILURE_LOG.md` §Screenshot crashes NPU).
+- **Accessibility Service** gives the structural tree for free — exact
+  element IDs, bounds, content descriptions. No vision tokens spent.
+- **Both at once** = the GPU reasoning model receives "what's on screen
+  semantically" plus "what it looks like literally." That's how the
+  reasoning model can ground "tap the blue button" against the tree
+  without hallucinating element coordinates.
+
+### Action output
+
+Accessibility Worker Relay is the **same** Accessibility Service that
+extracted the tree — boundary 6 is the surface for both directions.
+It consumes action JSON like:
+
+```json
+{"op": "tap", "node": "view_id/send_button"}
+{"op": "type", "node": "edit_text/message_input", "text": "hello"}
+```
+
+Models emit; relay executes. Truman Show: models never see the result;
+the next perception cycle's tree-extraction is how they "see" what
+happened.
+
+---
+
 ## Repo layout (current)
 
 ```

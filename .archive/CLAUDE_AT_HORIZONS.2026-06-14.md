@@ -1,3 +1,20 @@
+> ⚠️ **STATUS: SCRAPPED — DO NOT USE AS GUIDANCE.**
+> Archived 2026-06-14. Superseded by greenfield rebuild — see
+> `CLAUDE_AT_HORIZONS.md` (current) and `GREENFIELD_PLAN.md`.
+>
+> **DEAD STACK — sub-agents must ignore everything below:**
+> Moonshine STT · Kokoro TTS · sherpa-onnx AAR · ORT-Android NNAPI
+> delegate · `EdgeModelFactory` type labels · `Orchestrator` cloud
+> failover · `ProviderLibrary` · OpenRouter / Anthropic-direct /
+> Vertex clients living inside main Horizons · `ChatPanel` mic button ·
+> `KeyRow` `remember{}` phantom-save pattern · `Watchdog` loopback WS
+> server.
+>
+> **LIVE STACK is in `CLAUDE_AT_HORIZONS.md`.** This file kept for audit
+> trail only.
+
+---
+
 # CLAUDE @ Horizons — Full Architecture & Build State
 
 Reload context for the Horizons (N0.V4) build on the Motorola Razr Ultra.

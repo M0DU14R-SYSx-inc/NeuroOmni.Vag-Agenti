@@ -1,5 +1,24 @@
 # Horizons — Session Prefix
 
+> ⚠️ **DEAD STACK — DO NOT REINTRODUCE.** Sub-agents have wandered back to
+> these. They are SCRAPPED in greenfield and any code/doc/PR proposing
+> them is wrong:
+>
+> Moonshine STT · Kokoro TTS · sherpa-onnx (AAR or otherwise) · ORT-Android
+> NNAPI delegate · `EdgeModelFactory` type labels (VLM / MLLM / STT / TTS) ·
+> `Orchestrator` with cloud failover · `ProviderLibrary` · in-app OpenRouter
+> / Anthropic-direct / Vertex clients · `ChatPanel` mic button · `KeyRow`
+> `remember{}` phantom-save pattern · `Watchdog` loopback WS server.
+>
+> **LIVE STACK:** 9 boundaries below. Voice = Parakeet TDT/ASR (NPU) +
+> VoxSherpa (system TTS). Vision/text = OmniNeural-4B (NPU) + Gemma-4-E4B-IT
+> (GPU). Cloud lives in a **separate app**, reached through a capability
+> adapter that returns `NexaEngine`-shaped handles.
+>
+> Anything in `.archive/` is for audit only — banners on those files
+> say SCRAPPED. Don't paraphrase from them.
+
+
 > **Streamlined.** Pointer-first. The wiki is loaded by reference, not inlined.
 > Agents that need full architecture detail follow the link; one-shot agents
 > with a narrow scope don't pay for context they won't use.

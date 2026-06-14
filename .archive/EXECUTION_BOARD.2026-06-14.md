@@ -1,3 +1,11 @@
+> ⚠️ **STATUS: SCRAPPED — DO NOT USE.**
+> Archived 2026-06-14. Pre-greenfield milestones (M1-M5) are obsolete.
+> Current milestones (G1-G8) live in `EXECUTION_BOARD.md` at repo root.
+>
+> Kept for audit trail only.
+
+---
+
 # Horizons Execution Board
 
 > **Living artifact.** This file is the active task list + claims dashboard.

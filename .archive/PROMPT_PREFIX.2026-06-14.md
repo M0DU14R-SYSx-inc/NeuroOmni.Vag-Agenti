@@ -1,3 +1,16 @@
+> ⚠️ **STATUS: SCRAPPED — DO NOT USE AS GUIDANCE.**
+> Archived 2026-06-14. Superseded by the greenfield rebuild — see
+> `PROMPT_PREFIX.md` (current) and `GREENFIELD_PLAN.md`.
+>
+> **The stack described below is DEAD.** Anything in this file about
+> Moonshine, Kokoro, sherpa-onnx, ORT-Android, NNAPI delegates, or
+> ProviderLibrary cloud failover is **wrong for the current build**.
+> Current locked stack: see `CLAUDE_AT_HORIZONS.md` §"The 9 hard boundaries".
+>
+> Kept for audit trail only.
+
+---
+
 # Horizons — Rolling Session Prefix
 
 **Purpose.** This file is the volatile per-session cacheable prefix sent

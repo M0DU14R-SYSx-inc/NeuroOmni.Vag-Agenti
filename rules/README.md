@@ -7,6 +7,7 @@ Rules are the contract. **Rules > wiki guidance** when in conflict.
 | `CACHE_PROMPT_RULES.md` | Anthropic prompt caching (TTL, breakpoint budget, edit cadence) |
 | `GIT_HYGIENE.md` | Branch policy, commit safety, branch preservation |
 | `AT_BAT_PROTOCOL.md` | How an agent claims, works, and hands off a milestone |
+| `AAR_DECOMPILE.md` | Decompile the Nexa AAR before writing SDK code — bytecode is ground truth |
 
 ## Precedence
 
