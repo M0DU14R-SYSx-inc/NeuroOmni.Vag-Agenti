@@ -15,6 +15,7 @@ class MicCaptureController(
     private val context: Context,
     private val recorder: AudioRecorder,
     private val sttSupplier: () -> MoonshineSttEngine?,
+    private val sttLazyLoad: suspend () -> Unit = {},
 ) {
     sealed class State {
         object Idle : State()
@@ -81,6 +82,11 @@ class MicCaptureController(
         val pcm = stopResult.getOrElse {
             _state.value = State.Error(it.message ?: "Failed to stop recording")
             return Result.failure(it)
+        }
+        // Lazy-load on first use: voice engines are NOT loaded at app start
+        // to keep idle RAM low. Suspend here while Moonshine boots.
+        if (sttSupplier()?.isLoaded != true) {
+            runCatching { sttLazyLoad() }
         }
         val engine = sttSupplier()
         if (engine == null || !engine.isLoaded) {

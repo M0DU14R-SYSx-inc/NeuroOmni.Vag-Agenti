@@ -1,153 +1,86 @@
 # Horizons Agent Setup Wizard
 
-> One-page deployment guide. Pick your surface, follow 3 steps.
-> Don't think harder than this.
+> One page. Pick your row. Paste one file. Reply "go" when asked. Done.
 
 ---
 
-## TL;DR — the only two files you ever need to paste
+## 🎯 The brainless table
 
-| File | Role | Paste into |
+Pick the row matching the tool you're using:
+
+| If you're using... | Paste this one file | Then |
 |---|---|---|
-| `UNIVERSAL_PREFIX.md` | System prompt — who the agent is, what the project is, rules, file map | System-prompt / context field |
-| `UNIVERSAL_LAUNCH.md` | First user message — bootstraps the agent + tells it which milestone to take | First user message |
+| **Any LLM you've never used before for this project** (Codex, Cursor, ChatGPT, Hermes, DeepSeek, Qwen, Gemini, local model — anything) | **`AGENT_GO.md`** as the first message | Wait for `READY.` reply, say `go` |
+| Claude Code (web, CLI, IDE plugin) | **`SETUP_PROMPT.md`** as the first message | Reply `go` when asked |
+| Anthropic Managed Agent (`ant` CLI) | **`MANAGED_AGENT_KICKOFF.md`** block via `ant beta:sessions:events send` | Reply `go` |
 
-That's it. The prefix tells the agent to fetch any other docs it needs from raw GitHub URLs.
+That's it. No system prompt to set separately. No milestone ID to fill in. No model tier dropdown. The agent self-orients, self-picks a milestone matching its capability, asks permission, then works.
 
----
-
-## Pick your surface
-
-### 🟢 Claude Code (web / CLI / IDE plugin)
-**Use `SETUP_PROMPT.md` instead of `UNIVERSAL_LAUNCH.md`.** Claude Code-specific (uses its Agent tool, accesses its own MCPs, etc.).
-
-```
-1. Open a new Claude Code session pointed at your local clone of the repo
-2. Drop SETUP_PROMPT.md content as the first user message
-3. Reply "go" when it asks
-```
-
-### 🟢 Anthropic Managed Agent (`ant` CLI)
-**Use `MANAGED_AGENT_KICKOFF.md`.** It restructures the agent's role from builder → wiki librarian + commit watcher (different from at-bat coding work).
-
-```
-1. Set ANTHROPIC_API_KEY in env
-2. ant beta:agents update --agent-id <id> --system "$(cat agents/neuralmash-builder.system.md)"
-3. ant beta:sessions create --agent <id> --environment-id <env>
-4. Send MANAGED_AGENT_KICKOFF.md block as first user.message
-```
-
-### 🟢 Codex / Codex CLI / Cursor / ChatGPT / Hermes / DeepSeek / Qwen / any other LLM CLI or web chat
-**Use `UNIVERSAL_PREFIX.md` + `UNIVERSAL_LAUNCH.md`.**
-
-```
-1. Start a new session/chat
-2. Paste UNIVERSAL_PREFIX.md into the system prompt / system message field
-3. Edit UNIVERSAL_LAUNCH.md: replace "MX.Y" with the milestone you picked from
-   EXECUTION_BOARD.md, replace the "model tier" bold line with your model
-4. Paste that as the first user message
-5. Wait for "READY." reply, verify it picked the right milestone, reply "proceed"
-```
-
-### 🟡 GitHub Copilot Chat (Workspace mode)
-**Put `UNIVERSAL_PREFIX.md` in `.github/copilot-instructions.md`** (already in repo if you want, or add it). Then chat with Copilot — it has the prefix baked in. Use `UNIVERSAL_LAUNCH.md` as the first message.
-
-### 🔴 Offline / local model with no internet (Ollama, local llama.cpp, etc.)
-**Upload `UNIVERSAL_PREFIX.md` + the docs it references** since the agent can't fetch from raw GitHub URLs. Minimum bundle:
-
-```
-UNIVERSAL_PREFIX.md       (system prompt)
-UNIVERSAL_LAUNCH.md       (first user message)
-EXECUTION_BOARD.md        (so it knows what's available)
-PROMPT_PREFIX.md          (the latest pivots — lighthouse rules)
-docs/LIGHTHOUSE.md        (deep-dive ref)
-```
-
-5 files. Only path that actually needs more than 2.
+**You do exactly two things: paste once, say "go" once.**
 
 ---
 
-## Pick a milestone
+## 🌐 Direct download URLs
 
-Open `EXECUTION_BOARD.md`. Look at the "Active claims dashboard" first — see what's in-flight, avoid collisions.
-
-Then scan for `status: AVAILABLE` milestones. Match difficulty to your model tier:
-
-| Model | Max difficulty |
-|---|---|
-| Haiku 4.x / Sonnet-fast / Qwen-Coder small | 1-2 |
-| Sonnet 4.x / Codex / Hermes 70B / DeepSeek-Coder | 1-3 |
-| Opus 4.6 / GPT-5 / Qwen-Coder-32B | 1-4 |
-| Opus 4.8 / O3 / human-in-loop | 1-5 |
-
-Pick one whose `depends_on:` are all `DONE`. Note the milestone ID (e.g. `M1.4`).
-
----
-
-## Run it
-
-1. Start session, paste prefix + launch (with milestone ID + model tier filled in)
-2. Agent replies `READY. ...`
-3. You reply `proceed`
-4. Agent claims (commits one-line board edit), does the work, pushes, waits for CI green, updates board to DONE
-5. Agent ends with a recommendation for the next bat
-
-If agent FAILS or loops, board entry goes to `status: FAILED` with a one-line `failed_notes:` block. You escalate the same milestone to a stronger model — repeat steps 1-5 with a higher-tier agent.
-
----
-
-## Don't think wizard
+Save these somewhere local for offline access:
 
 ```
-Q: I just want to start.
-A: Paste UNIVERSAL_PREFIX.md as system. Paste UNIVERSAL_LAUNCH.md as first message with MX.Y = a low-difficulty AVAILABLE milestone. Done.
-
-Q: My agent says it can't fetch the URL.
-A: It's offline. Upload the 5 files from the "🔴 Offline" section above.
-
-Q: Two agents picked the same milestone.
-A: First one to commit the board claim wins. Second one re-checks, picks something else.
-
-Q: Agent gave up.
-A: Board entry should be FAILED. Pick a model one tier higher, restart with same milestone ID.
-
-Q: I want to spawn 5 agents at once.
-A: Pick 5 milestones with no shared dependencies. Open 5 sessions. Same prefix + launch (different milestone per session). Run.
-
-Q: Agent claimed but never started.
-A: After 30 min, edit the board manually — set claimed_by back to null, status back to AVAILABLE. Dispatch fresh.
-
-Q: I want to use this template for a different project.
-A: Strip Horizons-specific lines from UNIVERSAL_PREFIX.md (sections 1, 2, 3, 6). Replace with your project's identity, locked stack, gotchas, code layout. Rebuild EXECUTION_BOARD.md from scratch with your milestones. UNIVERSAL_LAUNCH.md needs minimal changes (mostly the GitHub URL in the orientation steps).
+AGENT_GO.md               https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/AGENT_GO.md
+SETUP_PROMPT.md           https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/SETUP_PROMPT.md
+MANAGED_AGENT_KICKOFF.md  https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/MANAGED_AGENT_KICKOFF.md
 ```
 
----
-
-## Direct download URLs (raw GitHub)
-
-
-```
-UNIVERSAL_PREFIX.md         https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/UNIVERSAL_PREFIX.md
-UNIVERSAL_LAUNCH.md         https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/UNIVERSAL_LAUNCH.md
-EXECUTION_BOARD.md          https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/EXECUTION_BOARD.md
-AGENT_SETUP_WIZARD.md       https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/AGENT_SETUP_WIZARD.md
-PROMPT_PREFIX.md            https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/PROMPT_PREFIX.md
-SETUP_PROMPT.md             https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/SETUP_PROMPT.md
-MANAGED_AGENT_KICKOFF.md    https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/MANAGED_AGENT_KICKOFF.md
-HANDOFF.md                  https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/HANDOFF.md
-CLAUDE_AT_HORIZONS.md       https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/CLAUDE_AT_HORIZONS.md
-docs/LIGHTHOUSE.md          https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main/docs/LIGHTHOUSE.md
-```
-
-One-liner to grab the whole kit (run anywhere with `curl`):
+One-liner to grab all three:
 
 ```bash
 mkdir -p horizons-handoff && cd horizons-handoff
 BASE="https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main"
-for f in UNIVERSAL_PREFIX.md UNIVERSAL_LAUNCH.md EXECUTION_BOARD.md \
-         AGENT_SETUP_WIZARD.md PROMPT_PREFIX.md SETUP_PROMPT.md \
-         MANAGED_AGENT_KICKOFF.md HANDOFF.md CLAUDE_AT_HORIZONS.md; do
+for f in AGENT_GO.md SETUP_PROMPT.md MANAGED_AGENT_KICKOFF.md; do curl -sLO "$BASE/$f"; done
+```
+
+---
+
+## 🔍 If anything goes wrong
+
+| Symptom | Fix |
+|---|---|
+| Agent says it can't fetch the URL (offline model) | Also paste these alongside AGENT_GO: `EXECUTION_BOARD.md`, `PROMPT_PREFIX.md`. That's the offline bundle. |
+| Two agents claimed the same milestone | First-to-commit-board wins. Tell the loser to pick another. |
+| Agent gave up / spinning | Board entry says FAILED — restart with one tier stronger model, same milestone ID. |
+| Agent claimed but never started | After ~30 min, manually edit board: `status: AVAILABLE`, `claimed_by: null`, push, dispatch fresh. |
+| You want 5 agents in parallel | Open 5 sessions. Paste AGENT_GO in each. The board's `files:` list per milestone tells you which combos don't collide. |
+| AGENT_GO doesn't fit in the session's context limit | Use the shorter `SETUP_PROMPT.md` instead — for Claude Code surfaces — or split AGENT_GO into prefix+launch (`UNIVERSAL_PREFIX.md` + `UNIVERSAL_LAUNCH.md`). |
+
+---
+
+## 🧰 Power-user / template-reuse note
+
+The full toolkit is bigger than the 3 files above. You only ever need more if:
+
+- **You're using this whole pattern for a different project.** Strip the Horizons-specific content from `AGENT_GO.md` (sections 2, 8, 9) and rebuild `EXECUTION_BOARD.md` with your milestones. Everything else is reusable as-is.
+- **You're debugging the handoff machinery itself.** The full set:
+  - `UNIVERSAL_PREFIX.md` + `UNIVERSAL_LAUNCH.md` — the original 2-paste split (AGENT_GO collapses them)
+  - `HANDOFF.md` — full project history briefing
+  - `CLAUDE_AT_HORIZONS.md` + `PROMPT_PREFIX.md` — architecture wiki + rolling state
+  - `docs/LIGHTHOUSE.md` — deep-dive reference
+  - `agents/neuralmash-builder.system.md`, `agents/sub-agent.system.md`, `sub-agent.agent.yaml` — managed-agent + at-bat YAML config
+
+Grab the whole kit with one curl:
+
+```bash
+mkdir -p horizons-handoff && cd horizons-handoff
+BASE="https://raw.githubusercontent.com/M0DU14R-SYSx-inc/NeuroOmni.Vag-Agenti/main"
+for f in AGENT_GO.md SETUP_PROMPT.md MANAGED_AGENT_KICKOFF.md \
+         UNIVERSAL_PREFIX.md UNIVERSAL_LAUNCH.md AGENT_SETUP_WIZARD.md \
+         EXECUTION_BOARD.md PROMPT_PREFIX.md CLAUDE_AT_HORIZONS.md \
+         HANDOFF.md sub-agent.agent.yaml; do
   curl -sLO "$BASE/$f"
 done
-mkdir -p docs && curl -sLo docs/LIGHTHOUSE.md "$BASE/docs/LIGHTHOUSE.md"
+mkdir -p docs agents
+curl -sLo docs/LIGHTHOUSE.md "$BASE/docs/LIGHTHOUSE.md"
+curl -sLo agents/neuralmash-builder.system.md "$BASE/agents/neuralmash-builder.system.md"
+curl -sLo agents/sub-agent.system.md "$BASE/agents/sub-agent.system.md"
+ls -la
 ```
+
+But again — for 90% of sessions you only need `AGENT_GO.md`. Don't overthink it.

@@ -3,6 +3,7 @@ package com.horizons
 import android.app.Application
 import android.util.Log
 import com.horizons.ipc.WatchdogWsClient
+import com.horizons.logging.CrashRecorder
 import com.horizons.model.EdgeModel
 import com.horizons.model.EdgeModelFactory
 import com.horizons.model.KokoroDownloader
@@ -25,9 +26,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 class HorizonsApplication : Application() {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -75,14 +78,40 @@ class HorizonsApplication : Application() {
 
     val audioRecorder: AudioRecorder by lazy { AudioRecorder(this) }
     val micController: MicCaptureController by lazy {
-        MicCaptureController(this, audioRecorder) { moonshine }
+        MicCaptureController(this, audioRecorder, { moonshine }, { tryLoadStt() })
     }
-    val speaker: SpeakerPlayer by lazy { SpeakerPlayer { kokoro } }
+    /** System TTS bridge — uses VoxSherpa when installed + set as default. */
+    val systemTts: com.horizons.audio.SystemTtsClient by lazy {
+        com.horizons.audio.SystemTtsClient(this)
+    }
+    val speaker: SpeakerPlayer by lazy {
+        SpeakerPlayer(
+            ttsSupplier = { kokoro },
+            ttsLazyLoad = { tryLoadTts() },
+            systemTtsSupplier = { systemTts },
+            preferSystemTts = { isVoxSherpaPreferred() },
+        )
+    }
+
+    /** Operator preference: route TTS through Android's system engine if
+     *  VoxSherpa is installed. Persisted under `tts.prefer_system`. */
+    fun isVoxSherpaPreferred(): Boolean {
+        val installed = com.horizons.audio.SystemTtsClient.isVoxSherpaInstalled(this)
+        val saved = credentials.get("tts.prefer_system")
+        return when (saved) {
+            "true" -> installed
+            "false" -> false
+            else -> installed   // default: prefer if installed
+        }
+    }
+    fun setVoxSherpaPreferred(enabled: Boolean) {
+        credentials.put("tts.prefer_system", enabled.toString())
+    }
     val tasker: TaskerBridge by lazy { TaskerBridge(this) }
     val screenshotCapture: ScreenshotCapture by lazy { ScreenshotCapture(this) }
 
-    // termux-api voice path — primary going forward, replacing the ORT stubs.
-    // ChatPanel rewire to use these is queued for next session per PROMPT_PREFIX.
+    // termux-api voice path — kept as FALLBACK only. Primary voice in/out is
+    // the sherpa-onnx stack (MoonshineSttEngine + KokoroTtsEngine).
     val termuxTts: com.horizons.audio.TermuxTtsClient by lazy { com.horizons.audio.TermuxTtsClient(this) }
     val termuxStt: com.horizons.audio.TermuxSttClient by lazy { com.horizons.audio.TermuxSttClient(this) }
 
@@ -107,6 +136,11 @@ class HorizonsApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // FIRST thing — install before any other code can throw. Native
+        // crashes from sherpa/Nexa take the app down with no Java exception
+        // and the operator has no adb; this leaves a file the next launch
+        // can surface in Diagnostics.
+        CrashRecorder.install(this)
         credentials = CredentialStore(this)
 
         // Set NEXA_TOKEN env var BEFORE any SDK init. Per Nexa docs the token is
@@ -127,6 +161,7 @@ class HorizonsApplication : Application() {
             credentials = credentials,
             library = providerLibrary,
             systemPromptSupplier = { wikiSystemPrompt },
+            awaitEngineReady = { timeoutMs -> awaitEngineReady(timeoutMs) },
         )
 
         edge = StubEdgeModel()
@@ -136,9 +171,16 @@ class HorizonsApplication : Application() {
         } else {
             _engineStatus.value = "no model staged"
         }
-        // STT/TTS — load in background if files are staged.
-        scope.launch { tryLoadStt() }
-        scope.launch { tryLoadTts() }
+        // STT/TTS — DO NOT auto-load on startup. Three large engines
+        // resident (Nexa VLM + Moonshine + Kokoro) was crashing the app
+        // on first chat. Voice engines now load lazily on first use:
+        // MicCaptureController triggers tryLoadStt() on first mic tap,
+        // SpeakerPlayer triggers tryLoadTts() on first auto-speak.
+        // Update the surface status so the user can see they're idle.
+        _sttStatus.value = if (MoonshineDownloader.installedDir(this) != null)
+            "staged (loads on first mic)" else "not staged"
+        _ttsStatus.value = if (KokoroDownloader.installedDir(this) != null)
+            "staged (loads on first speak)" else "not staged"
     }
 
     fun engine(): EdgeModel = edge
@@ -168,6 +210,25 @@ class HorizonsApplication : Application() {
     }
 
     fun reloadEngineAsync() { scope.launch { reloadEngine() } }
+
+    /**
+     * Suspends until [engineStatus] reaches a terminal state — "ready:" on
+     * success or one of the "fell back" / "no model" sentinels on failure.
+     * Returns whatever the live [edge] is at that point so the caller can
+     * check `is StubEdgeModel` and route accordingly. Falls through to the
+     * current [edge] if the timeout elapses (so a stuck load doesn't hang
+     * the chat path forever).
+     */
+    suspend fun awaitEngineReady(timeoutMs: Long): EdgeModel {
+        withTimeoutOrNull(timeoutMs) {
+            engineStatus.first { s ->
+                s.startsWith("ready:") ||
+                    s.startsWith("fell back") ||
+                    s.startsWith("no model")
+            }
+        }
+        return edge
+    }
 
     /**
      * Read nexa.token from CredentialStore and export it as the NEXA_TOKEN
@@ -226,6 +287,7 @@ class HorizonsApplication : Application() {
     }
 
     suspend fun tryLoadStt() {
+        if (moonshine?.isLoaded == true) return   // idempotent — first-use callers can race
         val dir = MoonshineDownloader.installedDir(this) ?: run {
             _sttStatus.value = "not staged"; return
         }
@@ -241,16 +303,38 @@ class HorizonsApplication : Application() {
         }
     }
 
+    /** Operator-selected Kokoro voice. Persisted in CredentialStore under
+     *  `kokoro.voice`. Defaults to KokoroDownloader.DEFAULT_VOICE (am_adam).
+     *  Changed via setKokoroVoice() which also reloads the TTS engine. */
+    fun kokoroVoice(): String =
+        credentials.get("kokoro.voice")?.takeIf { it in KokoroDownloader.ALL_VOICES }
+            ?: KokoroDownloader.DEFAULT_VOICE
+
+    /** Persist a new Kokoro voice + reload the TTS engine in the background.
+     *  Caller doesn't await — UI just updates the picker, Diag shows the
+     *  new voice once loaded. */
+    fun setKokoroVoice(voice: String) {
+        require(voice in KokoroDownloader.ALL_VOICES) { "Unknown Kokoro voice: $voice" }
+        credentials.put("kokoro.voice", voice)
+        scope.launch {
+            runCatching { kokoro?.release() }
+            kokoro = null
+            tryLoadTts()
+        }
+    }
+
     suspend fun tryLoadTts() {
+        if (kokoro?.isLoaded == true) return   // idempotent — first-use callers can race
         val dir = KokoroDownloader.installedDir(this) ?: run {
             _ttsStatus.value = "not staged"; return
         }
-        _ttsStatus.value = "loading..."
+        val voice = kokoroVoice()
+        _ttsStatus.value = "loading ($voice)…"
         runCatching {
-            val eng = KokoroTtsEngine(this, dir.absolutePath)
+            val eng = KokoroTtsEngine(this, dir.absolutePath, voice)
             eng.load()
             kokoro = eng
-            _ttsStatus.value = "ready (am_adam)"
+            _ttsStatus.value = "ready ($voice)"
         }.onFailure {
             Log.e(TAG, "Kokoro load failed", it)
             _ttsStatus.value = "load failed: ${it.javaClass.simpleName}: ${it.message}"

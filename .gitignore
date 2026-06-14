@@ -35,6 +35,9 @@ horizons/libs/
 .DS_Store
 Thumbs.db
 
+# sherpa-onnx AAR — fetched by the downloadSherpaAar gradle task, never committed
+horizons/libs/
+
 # Logs / build artifacts
 *.log
 interaction_logs.jsonl

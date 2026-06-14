@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
@@ -109,8 +111,11 @@ fun RouterPanel(modifier: Modifier = Modifier) {
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // ====== VLM (Nexa NPU) ======
-        Text("VLM — on-device", style = MaterialTheme.typography.titleMedium)
+        // ====== MLLM (Nexa NPU) ======
+        // Operator-correct: OmniNeural-4B is multimodal (text+vision+audio),
+        // not vision-only. Underlying Nexa SDK class is still VlmWrapper but
+        // that's their API naming for all NPU LLMs.
+        Text("MLLM — on-device", style = MaterialTheme.typography.titleMedium)
         Text("Engine: ${app.engine().backendTag}  ($engineStatus)")
         engineError?.let { Text("ENGINE ERROR: $it") }
         Text(status)
@@ -155,7 +160,7 @@ fun RouterPanel(modifier: Modifier = Modifier) {
         Text("STT — Moonshine", style = MaterialTheme.typography.titleMedium)
         Text("Status: $sttStatus")
         OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
-            busy = true; line = "Downloading Moonshine (~67 MB)..."
+            busy = true; line = "Downloading Moonshine (~250 MB, sherpa int8)..."
             // app.scope is SupervisorJob on the Application — survives tab
             // switches. Using rememberCoroutineScope() cancelled the
             // download the moment the user navigated away from Router.
@@ -172,11 +177,41 @@ fun RouterPanel(modifier: Modifier = Modifier) {
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
+        // ====== System TTS (VoxSherpa pluggable) ======
+        Text("TTS source", style = MaterialTheme.typography.titleMedium)
+        val voxInstalled = remember {
+            com.horizons.audio.SystemTtsClient.isVoxSherpaInstalled(ctx)
+        }
+        var preferSystem by remember {
+            mutableStateOf(app.isVoxSherpaPreferred())
+        }
+        if (voxInstalled) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                androidx.compose.material3.Switch(
+                    checked = preferSystem,
+                    onCheckedChange = { v -> preferSystem = v; app.setVoxSherpaPreferred(v) }
+                )
+                Text(
+                    "  Use VoxSherpa (system default TTS) — higher quality",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        } else {
+            Text(
+                "VoxSherpa.apk not installed. Install it from Play Store and set " +
+                    "as default TTS engine (System settings → Languages → " +
+                    "Text-to-speech) for upgraded voices. Falls back to in-app Kokoro.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
         // ====== Kokoro TTS ======
-        Text("TTS — Kokoro (am_adam)", style = MaterialTheme.typography.titleMedium)
+        Text("TTS — Kokoro (~349 MB w/ all 53 voices)", style = MaterialTheme.typography.titleMedium)
         Text("Status: $ttsStatus")
         OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
-            busy = true; line = "Downloading Kokoro (~87 MB)..."
+            busy = true; line = "Downloading Kokoro (~349 MB, sherpa v1.0)..."
             app.scope.launch {
                 runCatching {
                     KokoroDownloader.download(ctx) { p ->
@@ -187,6 +222,35 @@ fun RouterPanel(modifier: Modifier = Modifier) {
                 busy = false
             }
         }) { Text("Download Kokoro TTS") }
+
+        // Voice picker — visible once Kokoro is staged. Switch is instant
+        // (just unloads/reloads the in-memory engine; no re-download).
+        if (com.horizons.model.KokoroDownloader.installedDir(ctx) != null) {
+            var voiceMenuOpen by remember { mutableStateOf(false) }
+            val currentVoice = remember(ttsStatus) { app.kokoroVoice() }
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Voice: ", modifier = Modifier.padding(end = 4.dp))
+                androidx.compose.foundation.layout.Box {
+                    OutlinedButton(onClick = { voiceMenuOpen = true }) {
+                        Text(currentVoice)
+                        androidx.compose.material3.Icon(
+                            Icons.Filled.ArrowDropDown, "pick voice"
+                        )
+                    }
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = voiceMenuOpen,
+                        onDismissRequest = { voiceMenuOpen = false }
+                    ) {
+                        com.horizons.model.KokoroDownloader.ALL_VOICES.forEach { v ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(v) },
+                                onClick = { app.setKokoroVoice(v); voiceMenuOpen = false }
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
 

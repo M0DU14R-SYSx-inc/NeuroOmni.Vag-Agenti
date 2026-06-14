@@ -44,8 +44,10 @@ fun DiagnosticsPanel(modifier: Modifier = Modifier) {
     val logger = remember(ctx) { com.horizons.logging.InteractionLogger(ctx.applicationContext) }
     var refreshCounter by remember { mutableStateOf(0) }
     var lines by remember { mutableStateOf<List<String>>(emptyList()) }
+    var crashText by remember { mutableStateOf("") }
     LaunchedEffect(refreshCounter) {
         lines = runCatching { logger.tail(30) }.getOrDefault(emptyList())
+        crashText = runCatching { com.horizons.logging.CrashRecorder.read(ctx) }.getOrDefault("")
     }
 
     Column(
@@ -78,6 +80,26 @@ fun DiagnosticsPanel(modifier: Modifier = Modifier) {
                 "real call hits. 1h TTL is the default.",
             style = MaterialTheme.typography.bodySmall
         )
+
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+        // ====== Crash log (survives restart — operator screenshots this) ======
+        Text("Last crash", style = MaterialTheme.typography.titleMedium)
+        if (crashText.isBlank()) {
+            Text("(none recorded — clean since install or last clear)",
+                style = MaterialTheme.typography.bodySmall)
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    com.horizons.logging.CrashRecorder.clear(ctx); refreshCounter++
+                }) { Text("Clear") }
+                Text("(${crashText.length} chars)", style = MaterialTheme.typography.bodySmall)
+            }
+            Text(
+                crashText.take(6000),
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+            )
+        }
 
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
