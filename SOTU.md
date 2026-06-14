@@ -7,7 +7,7 @@
 > Format is fixed — do not add sections. Bump dated line + replace the four
 > blocks. Keep total ≤ 1 screen.
 
-**Snapshot:** 2026-06-14 17:03 UTC · branch `claude/jolly-lamport-5cJJ4`
+**Snapshot:** 2026-06-14 17:10 UTC · branch `claude/jolly-lamport-5cJJ4`
 
 > ⚠️ **DEAD STACK — DO NOT REINTRODUCE.** Sub-agents have wandered back to
 > these. Reject any output that names them as live:
@@ -39,19 +39,24 @@ after the new core compiles end-to-end and the design agent's UI lands.
 
 ## What changed this session
 
-- Greenfield branch scaffolded (`GREENFIELD_PLAN.md`, `core/nexa/`, `core/state/`).
+- **G1 — core scaffold** (DONE): `GREENFIELD_PLAN.md`, `core/nexa/`,
+  `core/state/AppStateStore`.
+- **G2 — salvage port** (DONE, parallel agent `intelligent-dijkstra`):
+  5 files into `core/` + typealias shims at old paths so callers keep
+  resolving. Also closed Q4 (per-tile terminal = TaskerBridge RUN_COMMAND
+  v1) and Q5 (cloud-frontend = sibling module `:cloudfront/`, same repo).
 - `horizons/libs/` (sherpa AAR) gitignored — sherpa is on the scrap list.
-- Docs reorg: SOTU/prefix/board as the three pickup files; `wiki/` + `rules/`
-  index folders; project-memory skill stood up.
+- Docs reorg: SOTU/prefix/board as the three pickup files; `wiki/` +
+  `rules/` index folders; project-memory skill stood up.
 - Added `DECISIONS.md`, `OPEN_QUESTIONS.md`, `GLOSSARY.md` as cheap-to-load
   secondary references.
 - **Doc hardening pass:** SCRAPPED banners on every `.archive/*` file;
   DEAD STACK block on `SOTU.md` + `PROMPT_PREFIX.md` so sub-agents
   cannot wander back to Kokoro / Moonshine / sherpa / Orchestrator.
 - **Vision + action pipeline** canonicalized into `CLAUDE_AT_HORIZONS.md`
-  (dual-input MediaProjection + Accessibility tree, in-process
+  (dual-input MediaProjection + Accessibility tree, in-process Ktor
   OpenAI-compatible HTTP server at `127.0.0.1:1234`, Accessibility
-  Worker Relay for action output).
+  Worker Relay for action output). Cloud-frontend speaks the same wire.
 - **`rules/AAR_DECOMPILE.md`:** decompile the Nexa AAR before writing SDK
   code — bytecode is ground truth, scraped docs lie.
 
@@ -67,13 +72,13 @@ work uses the existing UI as the host shell.
 
 | # | Name | What it does |
 |---|---|---|
-| G2 | Salvage port | Move 5 keeper files (SystemTtsClient, ScreenshotCapture, CrashRecorder, InteractionLogger, TaskerBridge) into `core/`. |
-| G3 | Nexa SDK wire-up | Make `NexaModelLoader.load()` real. OmniNeural+Parakeet on NPU, Gemma-4-E4B-IT on GPU. No type labels in public API. |
-| G4 | AppStateStore adoption | Migrate UI off the phantom-save `remember{}` pattern onto the single `StateFlow` source of truth. Kills the keys-reset bug. |
-| G5 | Per-tile terminal | Every tile gets an embedded shell (TaskerBridge → RUN_COMMAND v1). |
-| G6 | Cloud-frontend adapter | Capability adapter that returns `NexaEngine`-shaped handles backed by a separate cloud app. Hot-swap models from Router tile. |
+| ~~G2~~ | Salvage port | **DONE** by `intelligent-dijkstra`. |
+| **G3** | Nexa SDK wire-up | Make `NexaModelLoader.load()` real. OmniNeural+Parakeet on NPU, Gemma-4-E4B-IT on GPU. **Decompile the AAR first** — `rules/AAR_DECOMPILE.md`. No type labels in public API. |
+| **G4** | AppStateStore adoption | Migrate UI off the phantom-save `remember{}` pattern onto `AppStateStore.snapshot` StateFlow. Kills the keys-reset bug. |
+| **G5** | Per-tile terminal | Embedded shell per tile via `core/shell/TaskerBridge` (RUN_COMMAND v1; Q4 closed). |
+| **G6** | Cloud-frontend adapter | `:cloudfront/` sibling module (Q5 closed). Capability adapter returns `NexaEngine`-shaped handles. Hot-swap from Router tile. |
 | G7 | UI scaffold | **Gated on operator dropping a rough design draft.** Until then, keep existing UI. |
-| G8 | Legacy deletion | Once G2 + G3 land, delete sherpa, Orchestrator, providers, EdgeModelFactory, mic button. |
+| G8 | Legacy deletion | Once G3 lands, delete sherpa, Orchestrator, providers, EdgeModelFactory, mic button. |
 
 G2 through G6 can ship under the current installed UI. The operator
 installs the next update APK and uses the new engine layer through the
@@ -82,10 +87,12 @@ old screens. G7 is the only at-bat that touches visuals.
 ## Stuck / waiting on
 
 - **Q1 (OPEN_QUESTIONS):** concurrent NPU + GPU residency — undocumented.
-  Blocks G3 acceptance.
-- **Q2:** Parakeet Android wrapper API — blocks G3 ASR path.
-- **Q3:** design artifact format + delivery — blocks G7 only.
-- **Q5:** cloud-frontend repo layout (same repo vs separate) — blocks G6.
+  Verified on-device after G3 lands and `NexaModelLoader.load()` is real.
+- **Q2:** Parakeet Android wrapper API — blocks G3 ASR path. First step
+  for the G3 agent: `javap` the Nexa AAR per `rules/AAR_DECOMPILE.md`.
+- **Q3:** design artifact format + delivery — blocks G7 only. G3-G6
+  ship under existing UI.
+- **Q6:** GCP auth from Termux — deferred to G6.
 
 ---
 
