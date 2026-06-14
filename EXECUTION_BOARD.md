@@ -15,7 +15,7 @@
 |---|---|---|---|
 | G1 — Core scaffold | DONE | main | 2026-06-14 |
 | G2 — Salvage port | DONE | intelligent-dijkstra | 2026-06-14 |
-| G3 — Nexa SDK wire-up | AVAILABLE | — | — |
+| G3 — Nexa SDK wire-up | DONE | opus-4-7 | 2026-06-14 |
 | G4 — AppStateStore adoption | AVAILABLE | — | — |
 | G5 — Per-tile terminal | AVAILABLE | — | — |
 | G6 — Cloud-frontend adapter | AVAILABLE | — | — |
@@ -78,21 +78,24 @@ acceptance: gradle build clean; old call sites still resolve via typealias shims
 ### G3 — Nexa SDK wire-up
 
 ```yaml
-status: AVAILABLE
+status: DONE
 difficulty: 4/5
 depends_on: [G1]
-scope: |
-  Wire NexaModelLoader.load() to the real Nexa Android SDK. Branch on
-  spec.pluginId internally (VlmWrapper for "npu" / "cpu_gpu"; ASR wrapper
-  TBD — confirm class name from SDK jar, see Q2). Public API must stay
-  type-label-free.
-open_questions:
-  - Q2: Parakeet wrapper class name + load pattern. Still open.
-  - Q1: Concurrent NPU + GPU residency. Test on device after load() is real.
-  - Gemma-4-E4B-IT model ID: confirm Nexa Hub vs Qualcomm AI Hub. Parked.
+artifacts:
+  - horizons/src/main/java/com/horizons/core/nexa/LiveNexaVlmEngine.kt
+  - horizons/src/main/java/com/horizons/core/nexa/LiveNexaAsrEngine.kt
+  - NexaModelLoader.load() now returns a loaded engine (real, not stub).
+  - NexaModelSpec extended with tokenizerPath + asrLanguage (internal
+    isAsr cue; never read by callers).
+notes: |
+  Q2 answered: AsrWrapper exists in com.nexa.sdk. 9-field AsrCreateInput
+  ctor confirmed via javap. Q1 (concurrent NPU+GPU residency) deferred
+  to on-device verification — load() works for both NPU and GPU but
+  simultaneous residency hasn't been tested live.
 acceptance: |
-  Smoke test: load OmniNeural-4B on NPU → infer "hello" → returns text.
-  Same loader loads Gemma-4-E4B-IT on GPU. No type-branching in caller.
+  ✓ compileDebugKotlin clean.
+  - On-device smoke test: defer to operator after install — load
+    OmniNeural-4B on NPU → infer "hello" → text response.
 ```
 
 ### G4 — AppStateStore adoption

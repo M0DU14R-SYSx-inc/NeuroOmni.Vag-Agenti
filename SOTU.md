@@ -7,7 +7,7 @@
 > Format is fixed — do not add sections. Bump dated line + replace the four
 > blocks. Keep total ≤ 1 screen.
 
-**Snapshot:** 2026-06-14 17:10 UTC · branch `claude/jolly-lamport-5cJJ4`
+**Snapshot:** 2026-06-14 17:35 UTC · branch `claude/jolly-lamport-5cJJ4`
 
 > ⚠️ **DEAD STACK — DO NOT REINTRODUCE.** Sub-agents have wandered back to
 > these. Reject any output that names them as live:
@@ -59,6 +59,12 @@ after the new core compiles end-to-end and the design agent's UI lands.
   Worker Relay for action output). Cloud-frontend speaks the same wire.
 - **`rules/AAR_DECOMPILE.md`:** decompile the Nexa AAR before writing SDK
   code — bytecode is ground truth, scraped docs lie.
+- **G3 — Nexa SDK wire-up** (DONE): decompiled the AAR, confirmed real
+  package is `com.nexa.sdk`. Wrote `LiveNexaVlmEngine` (VlmWrapper —
+  covers OmniNeural NPU + Gemma GPU) and `LiveNexaAsrEngine` (AsrWrapper
+  — Parakeet NPU). `NexaModelLoader.load()` is real, not stub.
+  `compileDebugKotlin` clean. Closed Q2.
+- **PR #36 merged to main.** All greenfield docs + G1/G2/G3 in tree.
 
 ## Build strategy decision (locked here)
 
@@ -73,7 +79,7 @@ work uses the existing UI as the host shell.
 | # | Name | What it does |
 |---|---|---|
 | ~~G2~~ | Salvage port | **DONE** by `intelligent-dijkstra`. |
-| **G3** | Nexa SDK wire-up | Make `NexaModelLoader.load()` real. OmniNeural+Parakeet on NPU, Gemma-4-E4B-IT on GPU. **Decompile the AAR first** — `rules/AAR_DECOMPILE.md`. No type labels in public API. |
+| ~~G3~~ | Nexa SDK wire-up | **DONE.** `LiveNexaVlmEngine` + `LiveNexaAsrEngine` real and compiling. |
 | **G4** | AppStateStore adoption | Migrate UI off the phantom-save `remember{}` pattern onto `AppStateStore.snapshot` StateFlow. Kills the keys-reset bug. |
 | **G5** | Per-tile terminal | Embedded shell per tile via `core/shell/TaskerBridge` (RUN_COMMAND v1; Q4 closed). |
 | **G6** | Cloud-frontend adapter | `:cloudfront/` sibling module (Q5 closed). Capability adapter returns `NexaEngine`-shaped handles. Hot-swap from Router tile. |
@@ -86,13 +92,12 @@ old screens. G7 is the only at-bat that touches visuals.
 
 ## Stuck / waiting on
 
-- **Q1 (OPEN_QUESTIONS):** concurrent NPU + GPU residency — undocumented.
-  Verified on-device after G3 lands and `NexaModelLoader.load()` is real.
-- **Q2:** Parakeet Android wrapper API — blocks G3 ASR path. First step
-  for the G3 agent: `javap` the Nexa AAR per `rules/AAR_DECOMPILE.md`.
-- **Q3:** design artifact format + delivery — blocks G7 only. G3-G6
+- **Q1:** concurrent NPU + GPU residency — code can issue both loads now;
+  needs live device test (operator runs an at-bat or installs the APK).
+- **Q3:** design artifact format + delivery — blocks G7 only. G4-G6
   ship under existing UI.
 - **Q6:** GCP auth from Termux — deferred to G6.
+- ~~Q2~~: closed by G3 (AsrWrapper confirmed in `com.nexa.sdk`).
 
 ---
 

@@ -37,7 +37,15 @@ object NexaModelLoader {
      *  as opaque. */
     suspend fun load(context: Context, spec: NexaModelSpec): NexaEngine {
         ensureSdkInit(context)
-        val engine = LiveNexaVlmEngine(spec)
+        val engine: NexaEngine = if (spec.isAsr) {
+            LiveNexaAsrEngine(
+                spec = spec,
+                language = spec.asrLanguage.ifEmpty { LiveNexaAsrEngine.DEFAULT_LANGUAGE },
+                tokenizerPath = spec.tokenizerPath,
+            )
+        } else {
+            LiveNexaVlmEngine(spec)
+        }
         engine.load()
         return engine
     }

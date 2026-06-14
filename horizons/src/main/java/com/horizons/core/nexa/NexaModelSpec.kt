@@ -21,7 +21,18 @@ data class NexaModelSpec(
     val mmprojPath: String = "",
     val maxTokens: Int = 2048,
     val enableThinking: Boolean = false,
+
+    /** Tokenizer path for ASR wrappers (Parakeet). Empty for VLM/LLM. */
+    val tokenizerPath: String = "",
+    /** ASR language code (`"en"`, `"es"`, …). Empty for non-ASR. */
+    val asrLanguage: String = "",
 ) {
+    /** True when the spec carries enough ASR-specific fields that the
+     *  loader should pick [AsrWrapper] instead of [VlmWrapper]. Internal
+     *  branching cue — never read by callers. */
+    internal val isAsr: Boolean
+        get() = tokenizerPath.isNotEmpty() || asrLanguage.isNotEmpty()
+
     companion object {
         const val PLUGIN_NPU = "npu"
         const val PLUGIN_CPU_GPU = "cpu_gpu"
