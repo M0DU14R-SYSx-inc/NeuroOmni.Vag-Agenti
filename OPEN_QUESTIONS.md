@@ -35,18 +35,20 @@ Rule: closed questions stay (audit trail). Don't delete; move to `## Answered` a
 - **Status:** open. Plan: test on device once G3 lands and
   `NexaModelLoader.load()` is real, not stubbed.
 
-## Q2 — Parakeet Android wrapper API
+## Q2 — Parakeet Android wrapper API (answered)
 
 - **Asked:** 2026-06-13
 - **Blocking:** G3 (ASR path).
 - **Question:** What is the Nexa Android wrapper class for Parakeet
-  TDT/ASR? Is it `AsrWrapper`, `SpeechWrapper`, or does it ride
-  `VlmWrapper` with audio attachments?
-- **Context:** OmniNeural-4B uses `VlmWrapper.builder()`. The Parakeet
-  pattern is unconfirmed. Without the class name + builder shape, G3
-  ASR can't compile.
-- **Answer:** —
-- **Status:** open. Plan: grep the Nexa AAR / read Nexa Studio docs.
+  TDT/ASR?
+- **Answer:** 2026-06-14. `com.nexa.sdk.AsrWrapper`. Builder pattern:
+  `.asrCreateInput(AsrCreateInput(name, model_path, tokenizer_path,
+  ModelConfig, language, plugin_id, device_id, license_id, license_key))
+  .dispatcher(d).build()` returns suspend `Result<AsrWrapper>`.
+  `transcribe(AsrTranscribeInput(audioPath, language, AsrConfig))` returns
+  suspend `Result<AsrTranscribeOutput>` with `.result.transcript`.
+  Wired in `core/nexa/LiveNexaAsrEngine.kt`.
+- **Status:** answered.
 
 ## Q3 — Design artifact format + delivery
 

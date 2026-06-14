@@ -1,36 +1,52 @@
 package com.horizons.core.nexa
 
 import android.content.Context
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
- * Single entry point for loading any Nexa-runnable model. No type labels —
- * callers pass a [NexaModelSpec] and receive a [NexaEngine].
+ * Single entry point for loading any Nexa-runnable model. Public API takes
+ * a [NexaModelSpec] and returns a loaded [NexaEngine]. Callers never see
+ * the concrete wrapper or know which plugin is hosting the model — Truman
+ * Show.
  *
- * SDK init (NexaSdk.getInstance().init() with the callback) happens once per
- * process; this loader gates on that. Concrete wrapper construction
- * (VlmWrapper.builder() etc.) lives inside the engine impl returned here so
- * the API surface stays modality-agnostic.
+ * Plugin branching is an internal implementation detail of this loader.
+ * Today: NPU + GPU both use [VlmWrapper] under [LiveNexaVlmEngine]. ASR
+ * (Parakeet) will add an [AsrWrapper]-backed engine in a follow-up at-bat;
+ * the public surface stays unchanged.
  *
- * NOTE: implementation pending. The Nexa SDK Android jar must be on the
- * classpath before this can compile end-to-end — the salvage / wiring pass
- * brings it in.
+ * SDK init (one-shot, idempotent) happens via [LiveNexaVlmEngine.initSdk]
+ * the first time [load] is called.
  */
 object NexaModelLoader {
     @Volatile private var sdkReady: Boolean = false
+    private val initMutex = Mutex()
 
-    /** Idempotent. Call from Application.onCreate. */
-    suspend fun ensureSdkInit(@Suppress("UNUSED_PARAMETER") context: Context) {
+    /** Idempotent. Safe to call from Application.onCreate. */
+    suspend fun ensureSdkInit(context: Context) {
         if (sdkReady) return
-        // TODO: NexaSdk.getInstance().init(context) { sdkReady = true }
-        sdkReady = true
+        initMutex.withLock {
+            if (sdkReady) return
+            LiveNexaVlmEngine.initSdk(context)
+            sdkReady = true
+        }
     }
 
-    /** Build + load an engine for [spec]. Suspends until the model is resident
-     *  (or fails). */
+    /** Build + load an engine for [spec]. Suspends until the model is
+     *  resident, or throws on failure. Caller treats the returned engine
+     *  as opaque. */
     suspend fun load(context: Context, spec: NexaModelSpec): NexaEngine {
         ensureSdkInit(context)
-        // TODO: branch on spec.pluginId to choose the right wrapper class;
-        // the branching is an implementation detail, not a public type label.
-        throw NotImplementedError("NexaModelLoader.load: pending Nexa SDK wiring")
+        val engine: NexaEngine = if (spec.isAsr) {
+            LiveNexaAsrEngine(
+                spec = spec,
+                language = spec.asrLanguage.ifEmpty { LiveNexaAsrEngine.DEFAULT_LANGUAGE },
+                tokenizerPath = spec.tokenizerPath,
+            )
+        } else {
+            LiveNexaVlmEngine(spec)
+        }
+        engine.load()
+        return engine
     }
 }
