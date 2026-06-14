@@ -14,7 +14,7 @@
 | Milestone | Status | Claimed by | Started |
 |---|---|---|---|
 | G1 — Core scaffold | DONE | main | 2026-06-14 |
-| G2 — Salvage port | AVAILABLE | — | — |
+| G2 — Salvage port | DONE | intelligent-dijkstra | 2026-06-14 |
 | G3 — Nexa SDK wire-up | AVAILABLE | — | — |
 | G4 — AppStateStore adoption | AVAILABLE | — | — |
 | G5 — Per-tile terminal | AVAILABLE | — | — |
@@ -59,20 +59,20 @@ acceptance: opaque engine interface compiles, AppStateStore unit-tested.
 ### G2 — Salvage port
 
 ```yaml
-status: AVAILABLE
+status: DONE
 difficulty: 2/5
 depends_on: [G1]
-scope: |
-  Port 5 files into core/, preserving package public-API where it crosses
-  module boundaries. Add 1-line redirect shims in old paths so callers
-  keep compiling.
-files:
-  - audio/SystemTtsClient.kt     → core/voice/SystemTtsClient.kt
-  - screen/ScreenshotCapture.kt  → core/screen/ScreenshotCapture.kt
-  - logging/CrashRecorder.kt     → core/log/CrashRecorder.kt
-  - logging/InteractionLogger.kt → core/log/InteractionLogger.kt
-  - tasker/TaskerBridge.kt       → core/shell/TaskerBridge.kt
-acceptance: gradle build clean; old call sites still resolve.
+artifacts:
+  - horizons/src/main/java/com/horizons/core/screen/ScreenshotCapture.kt  (ported + 1024px JPEG downscale)
+  - horizons/src/main/java/com/horizons/core/log/InteractionLogger.kt      (ported)
+  - horizons/src/main/java/com/horizons/core/shell/TaskerBridge.kt         (ported)
+  - horizons/src/main/java/com/horizons/core/voice/SystemTtsClient.kt      (new — VoxSherpa boundary-9 bridge)
+  - horizons/src/main/java/com/horizons/core/log/CrashRecorder.kt          (new — uncaught exception file marker)
+  - typealias shims: screen/ScreenshotCapture, logging/InteractionLogger, tasker/TaskerBridge
+notes: |
+  SystemTtsClient and CrashRecorder did not exist in legacy tree; written from spec.
+  TermuxTtsClient (audio/) left in place — it shells to Termux, not VoxSherpa.
+acceptance: gradle build clean; old call sites still resolve via typealias shims.
 ```
 
 ### G3 — Nexa SDK wire-up
@@ -83,12 +83,13 @@ difficulty: 4/5
 depends_on: [G1]
 scope: |
   Wire NexaModelLoader.load() to the real Nexa Android SDK. Branch on
-  spec.pluginId internally (VlmWrapper for "npu" / "cpu_gpu"; AsrWrapper
-  or equivalent for ASR — confirm class name from SDK jar). Public API
-  must stay type-label-free.
+  spec.pluginId internally (VlmWrapper for "npu" / "cpu_gpu"; ASR wrapper
+  TBD — confirm class name from SDK jar, see Q2). Public API must stay
+  type-label-free.
 open_questions:
-  - Parakeet wrapper class name + load pattern (AsrWrapper?).
-  - Concurrent NPU + GPU residency (boundary 7 + 8 simultaneously?).
+  - Q2: Parakeet wrapper class name + load pattern. Still open.
+  - Q1: Concurrent NPU + GPU residency. Test on device after load() is real.
+  - Gemma-4-E4B-IT model ID: confirm Nexa Hub vs Qualcomm AI Hub. Parked.
 acceptance: |
   Smoke test: load OmniNeural-4B on NPU → infer "hello" → returns text.
   Same loader loads Gemma-4-E4B-IT on GPU. No type-branching in caller.
@@ -116,8 +117,10 @@ status: AVAILABLE
 difficulty: 3/5
 depends_on: [G2]
 scope: |
-  Every UI tile gets an embedded shell pane. Scoped to the tile's package
-  via TaskerBridge / Termux. Edits land in the tree, NOT auto-pushed.
+  Every UI tile gets an embedded shell pane using core/shell/TaskerBridge
+  via Tasker RUN_COMMAND v1 (fire-and-forget — PTY upgrade deferred to v2
+  per operator decision). Agent drives input; interactive PTY not required.
+  Edits land in the tree, NOT auto-pushed.
 acceptance: |
   Open a tile → terminal tab → `ls horizons/src/main/java/com/horizons/`
   → output rendered inline. `git status` from terminal shows changes
@@ -131,9 +134,10 @@ status: AVAILABLE
 difficulty: 4/5
 depends_on: [G3]
 scope: |
-  Capability adapter that returns NexaEngine-shaped handles backed by a
-  separate cloud-frontend app/process. Model code can't tell local from
-  remote. Hot-swap toggle in Router tile.
+  Capability adapter that returns NexaEngine-shaped handles backed by the
+  cloud-frontend sibling module (:cloudfront/ in this repo — same-repo
+  per operator decision). Model code can't tell local from remote.
+  Hot-swap toggle in Router tile.
 acceptance: |
   Toggle model in Router → adapter unloads + loads → callers keep their
   NexaEngine reference + see new behavior. No backend-awareness leaks
