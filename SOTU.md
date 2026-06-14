@@ -1,21 +1,16 @@
 # State of the Union — Horizons
 
-> **Pickup file.** Read this first every session. One page. Updated at the end
-> of every session (operator pushes; agent drafts). If a session ends without
-> a SOTU bump, the next agent flags it.
->
-> Format is fixed — do not add sections. Bump dated line + replace the four
-> blocks. Keep total ≤ 1 screen.
+> **Pickup file #1.** Read this first every session. One screen. Standalone —
+> a fresh agent can run with this file alone.
 
-**Snapshot:** 2026-06-14 17:35 UTC · branch `claude/jolly-lamport-5cJJ4`
+**Snapshot:** 2026-06-14 18:00 UTC · branch `claude/jolly-lamport-5cJJ4`
 
-> ⚠️ **DEAD STACK — DO NOT REINTRODUCE.** Sub-agents have wandered back to
-> these. Reject any output that names them as live:
->
-> Moonshine STT · Kokoro TTS · sherpa-onnx · ORT-Android NNAPI delegate ·
-> `EdgeModelFactory` type labels · `Orchestrator` cloud failover ·
-> `ProviderLibrary` · in-app cloud clients · `ChatPanel` mic button ·
-> `KeyRow` `remember{}` phantom-save · `Watchdog` loopback WS.
+> ⚠️ **HARD CUT COMPLETED.** The legacy code is **archived**, not coexisting.
+> Everything that ever referenced sherpa-onnx, Moonshine, Kokoro,
+> `EdgeModelFactory`, `Orchestrator`, `ProviderLibrary`, the old `ChatPanel`
+> screenshot button, `KeyRow` `remember{}` phantom-save, or the `Watchdog`
+> loopback WS lives under `.archive/legacy-src/` and **must not be referenced**.
+> If you find yourself reading `.archive/`, stop — you're looking at dead code.
 >
 > **LIVE STACK:** Parakeet (NPU) + VoxSherpa (system TTS) for voice;
 > OmniNeural-4B (NPU) + Gemma-4-E4B-IT (GPU) for text/vision. Cloud lives
@@ -23,84 +18,81 @@
 
 ---
 
-## Where we are
+## What exists on this branch RIGHT NOW
 
-Greenfield rebuild in flight. Old app code (sherpa-onnx voice stack, cloud
-provider clients, EdgeModelFactory type-label soup, mic button) is being
-scrapped in favor of a 9-boundary stack with the Truman Show principle:
-models perform, they don't know about routing.
+Buildable APK (`gradle :horizons:assembleDebug` clean as of this snapshot):
 
-Live skeleton committed to `horizons/src/main/java/com/horizons/core/`:
-opaque `NexaEngine` + `NexaModelLoader` (no type labels) and `AppStateStore`
-(single StateFlow source of truth, kills the phantom-save credential bug).
+- `com.horizons.HorizonsApplication` — initializes `NexaModelLoader` on
+  start, exposes `engine: NexaEngine?` and `loadEngine(spec)` for the UI.
+- `com.horizons.MainActivity` — placeholder Compose screen showing
+  `engineStatus`. **Intentional minimal UI** until the design artifact lands.
+- `com.horizons.core.nexa.*` — `NexaEngine`, `NexaModelSpec`,
+  `NexaModelLoader`, `LiveNexaVlmEngine` (VlmWrapper-backed),
+  `LiveNexaAsrEngine` (AsrWrapper-backed). Real, decompile-verified.
+- `com.horizons.core.state.AppStateStore` — single
+  `StateFlow<Map<String,String>>` over EncryptedSharedPreferences.
+- `com.horizons.core.voice.SystemTtsClient` — VoxSherpa bridge.
+- `com.horizons.core.screen.ScreenshotCapture` — MediaProjection + 1024px
+  downscale + JPEG q=85 (no longer wired to UI; ready for new pipeline).
+- `com.horizons.core.log.{CrashRecorder, InteractionLogger}`.
+- `com.horizons.core.shell.TaskerBridge` — Termux `RUN_COMMAND`.
 
-Old packages still in the tree so HEAD keeps building. Clean deletion happens
-after the new core compiles end-to-end and the design agent's UI lands.
+Manifest is stripped to one launcher activity. All FGS/accessibility/IME
+services were archived because their backing code was archived; they
+re-land per-feature as new wiring arrives.
 
-## What changed this session
+## What does NOT exist yet (be honest with the user)
 
-- **G1 — core scaffold** (DONE): `GREENFIELD_PLAN.md`, `core/nexa/`,
-  `core/state/AppStateStore`.
-- **G2 — salvage port** (DONE, parallel agent `intelligent-dijkstra`):
-  5 files into `core/` + typealias shims at old paths so callers keep
-  resolving. Also closed Q4 (per-tile terminal = TaskerBridge RUN_COMMAND
-  v1) and Q5 (cloud-frontend = sibling module `:cloudfront/`, same repo).
-- `horizons/libs/` (sherpa AAR) gitignored — sherpa is on the scrap list.
-- Docs reorg: SOTU/prefix/board as the three pickup files; `wiki/` +
-  `rules/` index folders; project-memory skill stood up.
-- Added `DECISIONS.md`, `OPEN_QUESTIONS.md`, `GLOSSARY.md` as cheap-to-load
-  secondary references.
-- **Doc hardening pass:** SCRAPPED banners on every `.archive/*` file;
-  DEAD STACK block on `SOTU.md` + `PROMPT_PREFIX.md` so sub-agents
-  cannot wander back to Kokoro / Moonshine / sherpa / Orchestrator.
-- **Vision + action pipeline** canonicalized into `CLAUDE_AT_HORIZONS.md`
-  (dual-input MediaProjection + Accessibility tree, in-process Ktor
-  OpenAI-compatible HTTP server at `127.0.0.1:1234`, Accessibility
-  Worker Relay for action output). Cloud-frontend speaks the same wire.
-- **`rules/AAR_DECOMPILE.md`:** decompile the Nexa AAR before writing SDK
-  code — bytecode is ground truth, scraped docs lie.
-- **G3 — Nexa SDK wire-up** (DONE): decompiled the AAR, confirmed real
-  package is `com.nexa.sdk`. Wrote `LiveNexaVlmEngine` (VlmWrapper —
-  covers OmniNeural NPU + Gemma GPU) and `LiveNexaAsrEngine` (AsrWrapper
-  — Parakeet NPU). `NexaModelLoader.load()` is real, not stub.
-  `compileDebugKotlin` clean. Closed Q2.
-- **PR #36 merged to main.** All greenfield docs + G1/G2/G3 in tree.
+The app installs and shows engine status. It does **not** yet have:
 
-## Build strategy decision (locked here)
+- Chat tile that sends text to the loaded engine.
+- Screen-Q&A pipeline (MediaProjection foreground service consent flow +
+  Accessibility tree extraction + `engine.infer(image attachment)`).
+- Voice loop (mic capture → Parakeet → engine → VoxSherpa).
+- Model downloader / picker UI for OmniNeural / Gemma / Parakeet weights.
+- Per-tile terminal.
+- Cloud-frontend adapter.
 
-Greenfield engine work can ship **under the existing installed APK's UI**.
-Operator keeps the current interface they have on the phone; new at-bats
-swap the engine layer underneath via update APK. Design swap (G7) happens
-only when the operator has a rough draft ready. Until then, all G2-G6
-work uses the existing UI as the host shell.
+These are the next at-bats. See `EXECUTION_BOARD.md`.
 
-## What's next (one at-bat each, in order — see EXECUTION_BOARD.md)
+## What you do as the next agent
 
-| # | Name | What it does |
-|---|---|---|
-| ~~G2~~ | Salvage port | **DONE** by `intelligent-dijkstra`. |
-| ~~G3~~ | Nexa SDK wire-up | **DONE.** `LiveNexaVlmEngine` + `LiveNexaAsrEngine` real and compiling. |
-| **G4** | AppStateStore adoption | Migrate UI off the phantom-save `remember{}` pattern onto `AppStateStore.snapshot` StateFlow. Kills the keys-reset bug. |
-| **G5** | Per-tile terminal | Embedded shell per tile via `core/shell/TaskerBridge` (RUN_COMMAND v1; Q4 closed). |
-| **G6** | Cloud-frontend adapter | `:cloudfront/` sibling module (Q5 closed). Capability adapter returns `NexaEngine`-shaped handles. Hot-swap from Router tile. |
-| G7 | UI scaffold | **Gated on operator dropping a rough design draft.** Until then, keep existing UI. |
-| G8 | Legacy deletion | Once G3 lands, delete sherpa, Orchestrator, providers, EdgeModelFactory, mic button. |
+1. Read `PROMPT_PREFIX.md` for rules. Read `EXECUTION_BOARD.md` for
+   claims. Pick **one** milestone, claim it, do it, commit, push, PR,
+   merge. Repeat fresh-session per at-bat.
+2. **Do not** read `.archive/` for guidance. Do not paraphrase from it.
+   Do not re-introduce anything in the DEAD STACK warning above.
+3. Decompile the Nexa AAR first if you're writing SDK code
+   (`rules/AAR_DECOMPILE.md`). Bytecode is ground truth.
+4. At session close: bump this file. Bump only the dated line + the
+   "What does NOT exist yet" + "Recommended next at-bat" blocks. Don't
+   add sections.
 
-G2 through G6 can ship under the current installed UI. The operator
-installs the next update APK and uses the new engine layer through the
-old screens. G7 is the only at-bat that touches visuals.
+## Recommended next at-bat
 
-## Stuck / waiting on
+**G9 — Chat tile (text-only)** is the smallest functional slice that
+gets the operator something to click. Path:
+`MainActivity` adds a chat Compose surface → text field +
+"Load OmniNeural" button → `app.loadEngine(omnineural-spec)` →
+type prompt → `engine.stream(NexaInput(text))` → collect into a Text
+composable. Real model on NPU. ~45 min.
 
-- **Q1:** concurrent NPU + GPU residency — code can issue both loads now;
-  needs live device test (operator runs an at-bat or installs the APK).
-- **Q3:** design artifact format + delivery — blocks G7 only. G4-G6
-  ship under existing UI.
-- **Q6:** GCP auth from Termux — deferred to G6.
-- ~~Q2~~: closed by G3 (AsrWrapper confirmed in `com.nexa.sdk`).
+After G9: G10 (screen Q&A — MediaProjection foreground service + image
+attachment to NexaInput), G11 (voice loop — Parakeet downloader +
+mic capture → infer → VoxSherpa).
+
+## Branch + merge
+
+- Working branch: `claude/jolly-lamport-5cJJ4`.
+- Main is up to date through PR #37.
+- Never push `main` directly. Never delete a feature branch
+  (archive as `archive/<name>`).
+- Full rules: `rules/`.
 
 ---
 
-**Maintenance:** end-of-session, agent drafts new SOTU as part of close-out.
-Operator reviews + commits. Skip a session → next agent reads it as stale
-and asks before relying on it.
+**Standalone handoff check:** if you opened this file in a fresh session
+with no other context, you should know (a) the live stack is the 9
+boundaries, (b) the legacy code is archived and forbidden, (c) the next
+at-bat is G9 chat tile, (d) where to look for rules. That's the whole
+contract.
