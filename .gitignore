@@ -27,6 +27,10 @@ secrets.properties
 *.nexa
 *.gguf
 
+# Local-only AAR drops (sherpa-onnx etc.) — greenfield drops sherpa; if a
+# local build still pulls in an AAR, keep it out of the tree.
+horizons/libs/
+
 # OS
 .DS_Store
 Thumbs.db

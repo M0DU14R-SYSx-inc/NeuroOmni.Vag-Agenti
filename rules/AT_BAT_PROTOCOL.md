@@ -1,34 +1,31 @@
-# At-Bat Protocol
+# At-bat protocol — hard rules
 
-The rotating-at-bat pattern. Same model takes turns at full-spectrum
-work — no split "builder" / "fixer" roles (those inherit each other's
-blind spots).
+An at-bat is one agent's turn at one milestone. End-to-end: claim → work →
+commit → release. The rotation pattern keeps each at-bat clean (no
+"polish own turd" loop) and parallelizable across disjoint deps.
 
-## Rules
-
-1. **Each at-bat is full-spectrum**: implement + build + verify +
-   commit + open PR. Don't hand off mid-task.
-2. **Fresh session per at-bat.** A long session that hits a wall
-   tends to "polish its own turd" — archive it and spawn a new
-   sub-agent (see `sub-agent.agent.yaml`).
-3. **Claim before working.** Update
-   [`../EXECUTION_BOARD.md`](../EXECUTION_BOARD.md) → `claimed`
-   before the first code edit. See
-   [`../wiki/EXECUTION_LOG.md`](../wiki/EXECUTION_LOG.md) for the
-   state machine.
-4. **Release on stall.** If you sit on `claimed` >30 min without
-   moving to `working`, release the row.
-5. **Two blocks = fork.** If a milestone gets blocked twice, open a
-   row in [`../wiki/FORK_DECISIONS.md`](../wiki/FORK_DECISIONS.md)
-   and surface it to the operator.
-6. **Log failures.** Every blocker gets an append in
-   [`../wiki/FAILURE_LOG.md`](../wiki/FAILURE_LOG.md) with the fix
-   tried + outcome.
-
-## Don't
-
-  - Split build vs. fix between sessions.
-  - Carry a stale session past one wall-hit.
-  - Mark `done` without a merged PR link.
-  - Open a fresh issue for a known failure — append to the existing
-    `FAILURE_LOG.md` entry instead.
+1. **Read the three pickup files first.** `SOTU.md` → `PROMPT_PREFIX.md`
+   → `EXECUTION_BOARD.md`. If SOTU is older than the most recent commit
+   date, flag it and ask before assuming it's current.
+2. **Claim before touching code.** Edit the dashboard row in
+   `EXECUTION_BOARD.md` (`AVAILABLE → CLAIMED`), commit the 1-line diff,
+   then start work.
+3. **One at-bat = one milestone = one fresh session.** Don't chain.
+   The next milestone gets a fresh session so the agent isn't biased
+   toward defending its prior choices.
+4. **End-of-at-bat close-out (mandatory):**
+   1. Tests / lint clean.
+   2. Commit + push to the assigned feature branch.
+   3. Update the dashboard row (`IN_PROGRESS → DONE` or `→ BLOCKED`).
+   4. Draft `SOTU.md` for the next session.
+   5. If a blocker surfaced, append to `wiki/FAILURE_LOG.md`.
+   6. `git status` clean.
+5. **Working tree clean.** Stop-hook enforces. Untracked files either get
+   committed or `.gitignore`'d.
+6. **No silent rule relaxation.** If a hard rule blocks you, raise it
+   with the operator. Don't quietly bypass — the rule exists for a reason.
+7. **Parallel at-bats are fine on disjoint deps.** Check the dashboard
+   before claiming; if two agents pick the same milestone, the later
+   one reroutes.
+8. **Don't spawn sub-agents unless the operator asks.** The current
+   model is operator-orchestrated.

@@ -1,18 +1,20 @@
-# Hard Rules
+# Rules — hard contract
 
-Rules beat wiki guidance when in conflict. If an at-bat needs to break
-a rule, the operator approves it on the at-bat — not in this file.
+Rules are the contract. **Rules > wiki guidance** when in conflict.
 
-## Index
+| Rule file | Scope |
+|---|---|
+| `CACHE_PROMPT_RULES.md` | Anthropic prompt caching (TTL, breakpoint budget, edit cadence) |
+| `GIT_HYGIENE.md` | Branch policy, commit safety, branch preservation |
+| `AT_BAT_PROTOCOL.md` | How an agent claims, works, and hands off a milestone |
+| `AAR_DECOMPILE.md` | Decompile the Nexa AAR before writing SDK code — bytecode is ground truth |
 
-  - [`CACHE_PROMPT_RULES.md`](CACHE_PROMPT_RULES.md) — Anthropic
-    prompt-cache request shape, marker count, layout, edit-during-
-    cache prohibition.
-  - [`GIT_HYGIENE.md`](GIT_HYGIENE.md) — branch + commit rules, PR
-    workflow, archive (don't delete) feature branches.
-  - [`AT_BAT_PROTOCOL.md`](AT_BAT_PROTOCOL.md) — rotating at-bat
-    pattern, fresh session per at-bat, claim/release on the board.
+## Precedence
 
-## See also
+1. Hard rules in this folder.
+2. Pickup-file directives (`SOTU.md`, `PROMPT_PREFIX.md`, `EXECUTION_BOARD.md`).
+3. Wiki guidance (`CLAUDE_AT_HORIZONS.md`, `wiki/*`).
+4. Inline comments, ad-hoc convention.
 
-  - Usage / how-to: [`../wiki/README.md`](../wiki/README.md).
+If a rule needs to change, the change goes through the operator. Don't
+quietly relax a rule mid-session.

@@ -1,38 +1,24 @@
-# Git Hygiene
+# Git hygiene — hard rules
 
-## Branching
-
-1. **All work merges to `main` via PR.** Agents do not push directly
-   to `main`.
-2. **One branch per at-bat.** Name pattern: `claude/<adjective>-
-   <noun>-<short-id>` or operator-assigned.
-3. **Do NOT delete feature branches after merge.** Archive instead:
-   rename to `archive/<name>` (or leave as-is and rely on the
-   `archive/` filter). History is the record.
-4. **Operator action**: Settings → General → "Automatically delete
-   head branches" must be **unchecked**.
-
-## Commits
-
-1. Never `--no-verify`.
-2. Never `--no-gpg-sign`.
-3. Never amend a published commit (use a new commit + force-with-
-   lease only with operator approval).
-4. Never commit credentials. `debug.keystore` is the documented
-   exception (public-by-design for stable APK signatures).
-
-## Destructive ops (require explicit operator approval each time)
-
-  - `git reset --hard`
-  - `git push --force` / `--force-with-lease`
-  - `git branch -D`
-  - `git clean -f`
-  - Deleting any branch, tag, or release.
-
-## PRs
-
-  - Open via `mcp__github__create_pull_request`.
-  - Merge via `mcp__github__merge_pull_request` once CI is green and
-    operator gives the nod.
-  - If CI fails after merge to `main`, fix-forward in a new PR — do
-    not revert without operator approval.
+1. **Work on the assigned feature branch.** Never push `main` without
+   explicit operator permission.
+2. **Never** `--no-verify`, `--no-gpg-sign`, force-push (to anywhere
+   shared), or `reset --hard` without confirming with the operator.
+   If a hook fails, investigate the cause — don't bypass.
+3. **Never commit credentials.** Exception: `release/debug.keystore`
+   (public by design for stable APK signatures).
+4. **Do NOT delete feature branches after merge.** Archive — rename to
+   `archive/<name>`. The branch history is the audit trail.
+   - Operator action item: uncheck Settings → General → "Automatically
+     delete head branches" in GitHub.
+5. **One commit per logical change.** Don't squash multi-agent edits to
+   `EXECUTION_BOARD.md` — the commit log is the coordination layer.
+6. **Commit message style:** lowercase scope, imperative mood, line ≤72c.
+   Examples:
+   - `chore(board): G2 claimed by main`
+   - `core(nexa): wire VlmWrapper into NexaModelLoader`
+   - `wiki: refresh CACHE_PROMPTING.md with 1h TTL break-even math`
+7. **`git status` clean at end of every at-bat.** Untracked files either
+   get committed or `.gitignore`'d. Stop-hook enforces this.
+8. **Pull-requests:** only when the operator asks. Don't open a PR as
+   the default close-out — the operator chooses when to merge.

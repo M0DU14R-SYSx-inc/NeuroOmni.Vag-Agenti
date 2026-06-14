@@ -1,33 +1,24 @@
-# Cache Prompt Rules (Anthropic)
+# Cache prompting — hard rules
 
-Hard rules for every Claude API call made by Horizons or its
-sub-agents. Usage/how-to lives in
-[`../wiki/CACHE_PROMPTING.md`](../wiki/CACHE_PROMPTING.md).
+For directions + trade-offs see `wiki/CACHE_PROMPTING.md`. This file is the
+contract.
 
-## Rules
-
-1. **Layout is `tools → system → messages`.** Any other order
-   silently misses the cache.
-2. **Maximum 4 `cache_control` markers per request.** Anthropic API
-   limit. Place markers at the end of stable boundaries (after tools,
-   after system, after the last cached user turn).
-3. **Marker type:** `{type: "ephemeral", ttl: "5m" | "1h"}`. No other
-   TTL is supported.
-4. **Never edit a cached prefix mid-session.** Editing
-   `CLAUDE_AT_HORIZONS.md` or `PROMPT_PREFIX.md` while a session is
-   hot forces a 2x rewrite. Push prefix changes at session
-   boundaries; pre-warm fresh.
-5. **Pre-warm before fan-out.** Operator fires Router → Pre-warm
-   before spawning sub-agents so the first sub-agent doesn't pay
-   write cost.
-6. **Sub-agent task instructions go in the first user message**, not
-   in the cached system block — task-specific text invalidates reuse
-   across sub-agents.
-7. **Log the skill name as cache-key correlator** so hit/miss can be
-   attributed in `cacheStatus`.
-
-## Cost reference (do not edit; quoted from Anthropic docs)
-
-  - Write: 1.25x base for 5m TTL, 2x base for 1h TTL.
-  - Read: 0.1x base.
-  - Break-even: ~2 reads (5m) / ~10 reads (1h).
+1. **Max 4 `cache_control` markers per request.** Layout:
+   tools → system block → history-summary → reserved mid-conversation.
+2. **`cache_control` lands on the last block of the prefix to cache.**
+   Everything before is the key.
+3. **Pre-warm before sub-agent fan-out.** One `max_tokens: 1` call so the
+   cache is written before parallel reads begin. Anthropic's cache only
+   becomes available after the first response begins streaming — without
+   pre-warm, parallel sub-agents all miss.
+4. **Never edit cached prefix mid-session.** Wiki + prompt prefix edits
+   are batched between sessions. Mid-session edits invalidate at 1.25x
+   (5m TTL) or 2x (1h TTL).
+5. **TTL selection:** 5m for single sessions ≤5 min between turns. 1h for
+   sub-agent fan-out or multi-turn over an hour. Below ~3 reads, 1h
+   doesn't pay back.
+6. **Verify hits.** Read `lastUsage.cacheReadTokens > 0` after each call.
+   Surface the value in the Router/Diagnostics tile so the operator can
+   confirm without parsing JSON.
+7. **Cache key minimum is 1024 tokens.** Below that, no cache activity
+   even if `cache_control` is set.

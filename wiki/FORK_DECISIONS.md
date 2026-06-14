@@ -1,57 +1,50 @@
-# Fork Decisions
+# Fork decisions
 
-When a path is abandoned, record the trigger, the replacement, and
-the archive name of the dead branch. Don't delete the branch —
-archive it (see [`../rules/GIT_HYGIENE.md`](../rules/GIT_HYGIENE.md)).
-
-## Format
+When a path is abandoned, log it here. Format per entry:
 
 ```
-### <Subsystem> — <Old> → <New>
-- Decided: <date> by <operator/agent>
-- Trigger: <what made us give up>
-- Replacement: <chosen path>
-- Archived branch: archive/<name>
-- Linked failures: FAILURE_LOG.md#<anchor>
+## <abandoned thing> → <replacement>
+
+- **Trigger:** what made us fork.
+- **Replacement choice:** what we picked + why.
+- **Archived branch:** `archive/<name>` if branch is preserved.
+- **Date:** YYYY-MM-DD.
 ```
 
-## Pending fork criteria
+Rule: forks are decisions, not failures. The failure log captures
+attempts; this file captures the cut.
 
-### Kokoro TTS — in-app CPU → standalone GPU node
-- **Trigger**: in-app sherpa-onnx CPU synthesis proves too slow on
-  device (latency to first audio chunk > ~2s for short replies).
-- **Replacement**: run Kokoro as a separate node (possibly
-  GPU-pointed) — requires a sherpa rebuild with a GPU provider, not
-  an app change.
-- **Archive**: TBD on fork.
-- Linked: [`FAILURE_LOG.md`](FAILURE_LOG.md) — "Kokoro TTS —
-  phonemizer + GPU routing".
+---
 
-### Moonshine STT — sherpa CPU → Parakeet NPU sidekick
-- **Trigger**: sherpa-onnx Moonshine fails on-device verification or
-  transcription quality/latency is unacceptable.
-- **Replacement**: Parakeet (NeMo transducer) — with the sherpa
-  runtime now in place this is a **config + model-archive swap**
-  (OfflineModelConfig.transducer / nemo), not a code rewrite.
-- **Archive**: TBD on fork.
-- Linked: [`FAILURE_LOG.md`](FAILURE_LOG.md) — "Moonshine STT —
-  int8 ConvInteger ORT_NOT_IMPLEMENTED".
+## sherpa-onnx voice stack (Moonshine + Kokoro) → Parakeet (NPU) + VoxSherpa (CPU)
 
-## Closed forks
+- **Trigger:** Two compounding failures — Moonshine int8 ORT op gap and
+  Kokoro Adreno routing — required a 14 MB AAR shim with libonnxruntime.so
+  collisions. Both engines were stub-quality on-device.
+- **Replacement choice:** Parakeet TDT/ASR on Hexagon NPU via Nexa SDK
+  (boundary 8, co-resident with OmniNeural). VoxSherpa as system TTS
+  via `android.speech.tts.TextToSpeech` (boundary 9, already installed,
+  higher voice quality).
+- **Archived branch:** `archive/sherpa-voice-stack` (to be created at G8).
+- **Date:** 2026-06-13.
 
-### Voice runtime — hand-rolled ORT-Java engines → sherpa-onnx
-- Decided: 2026-06-11 by side-panel agent (operator green-lit the
-  VoxSherpa direction).
-- Trigger: Moonshine's hand-rolled seq2seq decode never produced a
-  working on-device transcription (see FAILURE_LOG); Kokoro's
-  speak() was a stub blocked on an espeak-ng JNI port nobody had
-  bandwidth to write.
-- Replacement: sherpa-onnx AAR v1.13.2 — OfflineRecognizer
-  (Moonshine base int8) + OfflineTts (Kokoro v1.0 multi-lang,
-  espeak-ng bundled). Maven onnxruntime-android dependency dropped;
-  sherpa's ORT 1.24.3 is the single packaged runtime.
-- Archived branch: none — old engines were replaced in place on
-  `claude/sherpa-voice-stack` (pre-rewrite code remains in git
-  history at tag-commit `5bc487d` and earlier).
-- Linked failures: both Moonshine and Kokoro entries in
-  [`FAILURE_LOG.md`](FAILURE_LOG.md).
+## In-app Orchestrator with cloud failover → Separate cloud-frontend app
+
+- **Trigger:** Truman Show principle — model code branched on
+  `is StubEdgeModel` to fall back to OpenRouter, leaking backend
+  awareness into the engine layer.
+- **Replacement choice:** Cloud frontends, hot-swap, CLI access, and API
+  access move to a separate process / app. Main Horizons reaches them
+  through a capability adapter that returns `NexaEngine`-shaped handles.
+- **Archived branch:** `archive/orchestrator-cloud-failover` (to be
+  created at G8).
+- **Date:** 2026-06-14.
+
+## EdgeModelFactory type labels → opaque NexaEngine
+
+- **Trigger:** VLM/MLLM/STT/TTS labels in the loader gated behavior —
+  every new model required a new type. Phantom complexity.
+- **Replacement choice:** `NexaModelSpec(name, pluginId, deviceId, …)`.
+  Loader returns `NexaEngine`. No labels in public API.
+- **Archived branch:** legacy code still in tree; deletion at G8.
+- **Date:** 2026-06-14.

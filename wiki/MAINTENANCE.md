@@ -1,38 +1,34 @@
-# Wiki Maintenance
+# Wiki maintenance
 
-How to keep the wiki, prefix, and execution board honest without
-invalidating mid-session caches.
+## What changes when
 
-## Stable vs. volatile
+| Change | File | Cadence |
+|---|---|---|
+| Per-session snapshot | `SOTU.md` | every session close |
+| Pointer / rule tweak | `PROMPT_PREFIX.md` | between sessions only |
+| Architecture-of-record | `CLAUDE_AT_HORIZONS.md` | between projects |
+| Milestone claim/advance | `EXECUTION_BOARD.md` | live (1-line commits) |
+| Rule addition / change | `rules/*.md` | between sessions, announce in SOTU |
 
-  - `CLAUDE_AT_HORIZONS.md` — **stable**. Architecture-of-record.
-    Editing it invalidates every cached prefix in flight (2x rewrite
-    cost). Only touch on milestone close or architectural change.
-  - `PROMPT_PREFIX.md` — **rolling**. Per-session state, agent
-    assignments, hot decisions. Update at session boundaries, not
-    mid-at-bat.
-  - `EXECUTION_BOARD.md` — **live**. One commit per state change
-    (claim → working → done). Multi-agent edits must not be squashed.
+## Cache-invalidation cost
 
-## Cache-safe edit rule
+`PROMPT_PREFIX.md` + `CLAUDE_AT_HORIZONS.md` are the system block. Editing
+either mid-session forces a cache rewrite — 1.25x (5m TTL) or 2x (1h TTL).
+**Never edit the wiki mid-cached-session.** If a fix is urgent, defer the
+wiki edit; the cache hit on subsequent reads dwarfs the edit's value.
 
-Never edit `CLAUDE_AT_HORIZONS.md` or `PROMPT_PREFIX.md` while a
-cached session is hot. If you must, bump TTL afterwards via Router →
-Pre-warm so the next sub-agent fan-out hits the new content. See
-[`CACHE_PROMPTING.md`](CACHE_PROMPTING.md).
+## Edit rules
 
-## What goes where
+- Wiki files are append-friendly. Reorgs go through `.archive/`.
+- When superseding a file, move the old version to
+  `.archive/<name>.<date>.md` rather than deleting. The audit trail is the
+  point.
+- Cross-link, don't duplicate. If a fact lives in two files, one of them
+  will rot.
 
-| Change type | File |
-|---|---|
-| New subsystem / file ownership | `CLAUDE_AT_HORIZONS.md` |
-| Agent rotation, current at-bat, hot decisions | `PROMPT_PREFIX.md` |
-| Claim/release/done on a milestone | `EXECUTION_BOARD.md` |
-| Repeated failure + attempted fixes | `wiki/FAILURE_LOG.md` |
-| Decision to abandon a path | `wiki/FORK_DECISIONS.md` |
-| Hard rule change | `rules/<file>.md` |
+## What stays out of the wiki
 
-## Index drift check
-
-When you add a new root or `docs/` doc, add a row to
-[`README.md`](README.md). Stale indexes are worse than no index.
+- Anything secret (keys, tokens, OAuth state) — those go in
+  `EncryptedSharedPreferences` via `AppStateStore`.
+- Per-session log spam — that's the operator's chat history, not the wiki.
+- Speculative architecture drafts — those go in `docs/` until adopted.

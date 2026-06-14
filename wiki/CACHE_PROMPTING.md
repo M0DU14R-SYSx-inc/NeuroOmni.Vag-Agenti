@@ -1,41 +1,51 @@
-# Anthropic Prompt Cache — Usage
+# Cache prompting — operator + agent directions
 
-How to use the cache for cross-session sub-agent fan-out. Hard rules
-live in [`../rules/CACHE_PROMPT_RULES.md`](../rules/CACHE_PROMPT_RULES.md).
+Anthropic prompt caching cuts repeat-read cost by 10x. Horizons relies on
+it for sub-agent fan-out (one cache write, N parallel reads).
 
-## What gets cached
+## TTL trade-offs
 
-The system block: `CLAUDE_AT_HORIZONS.md` (stable architecture) +
-`PROMPT_PREFIX.md` (rolling session prefix), bundled by
-`skills/horizons-wiki/SKILL.md`.
+| TTL | Write cost | Read cost | Use when |
+|---|---|---|---|
+| 5m (`ephemeral_5m`) | 1.25x | 0.1x | Single chat session, no fan-out, ≤5 min between turns |
+| 1h (`ephemeral_1h`) | 2x | 0.1x | Sub-agent fan-out, multi-turn over an hour |
+
+Break-even for 1h TTL: ~3 reads. Below that, pay the 5m premium instead.
 
 ## Pre-warm flow
 
-1. Operator: Router panel → **Pre-warm (1h)** or **Pre-warm (5m)**.
-2. App fires a 1-token Claude call with the wiki as the `system` block,
-   `cache_control: {type: "ephemeral", ttl: "1h" | "5m"}` on the last
-   entry.
-3. Diagnostics panel `cacheStatus` flips to written / hit.
-4. Sub-agent fan-out for the next hour (or 5m) pays read prices.
+1. Agent or Router tile fires a 1-token call (`max_tokens: 1`) with the
+   system block fully assembled.
+2. Anthropic's cache only becomes available **after the first response
+   starts streaming** — without pre-warm, parallel sub-agents all miss.
+3. Verify hit via `cacheStatus` flow in Router/Diagnostics:
+   - `write Nt (1h)` — cache was written.
+   - `hit Nt (read)` — cache was read.
+   - `no cache activity` — prefix below the 1024-token minimum, or
+     `cache_control` not on the right block.
 
-## TTL choice
+## Wire shape
 
-  - **5m** — single sprint, ≤3 sub-agents, prefix likely to change
-    after.
-  - **1h** — overnight at-bat rotation, prefix locked.
-  - Write cost: 1.25x (5m) / 2x (1h). Read: 0.1x. Break-even at ~2
-    reads (5m) or ~10 reads (1h).
+- `system` block as an array of `text` blocks.
+- `cache_control: {type: ephemeral, ttl: "1h"}` on the **last block** of
+  the prefix you want cached. Everything before it is the cache key.
+- ≤ 4 `cache_control` markers per request total. Layout:
+  1. tools (if any)
+  2. system block (wiki + prefix)
+  3. (optional) history summary
+  4. (reserved) mid-conversation break
 
-## Verify a hit
+## Hard rules
 
-Router → cache status shows last write timestamp + read count.
-Diagnostics → mirrors the same with build/version. If a hit isn't
-landing, you almost certainly edited the prefix mid-session — see
-[`MAINTENANCE.md`](MAINTENANCE.md) cache-safe edit rule.
+See `rules/CACHE_PROMPT_RULES.md` for the rule contract. Highlights:
 
-## Don't
+- Never edit cached prefix mid-session.
+- Pre-warm **before** sub-agent fan-out, not after.
+- One cache write serves N parallel reads — design fan-out around it.
 
-  - More than 4 `cache_control` markers (Anthropic API limit).
-  - Layout other than `tools → system → messages`.
-  - Edit the cached prefix mid-session.
-  - Pre-warm with a stale wiki (push first, then warm).
+## Verification
+
+`AnthropicDirectClient.lastUsage` (and `VertexClient.lastUsage` for the
+publisher path) expose `cacheCreationTokens` and `cacheReadTokens`.
+`isCacheHit` returns true when reads > 0. Router tile surfaces these
+live so the operator can confirm without parsing JSON.

@@ -1,37 +1,38 @@
-# Execution Board — Maintenance
+# Execution log — protocol
 
-The live artifact is [`../EXECUTION_BOARD.md`](../EXECUTION_BOARD.md).
-This doc explains how to update it without trampling other at-bats.
+The live execution log is `EXECUTION_BOARD.md` at repo root. This file is
+the **protocol** for it, not the log itself.
 
-## State machine
+## What counts as a log entry
 
-```
-todo  →  claimed  →  working  →  done
-                              ↘  blocked  →  (back to working or fork)
-```
+- Milestone claim (status `AVAILABLE → CLAIMED`).
+- Milestone advance (`CLAIMED → IN_PROGRESS → DONE`).
+- Blocker raised (`IN_PROGRESS → BLOCKED` with a `blocker:` note).
+- Failure handoff (`IN_PROGRESS → FAILED` with `failed_notes:` block,
+  re-enters `AVAILABLE` for a stronger model).
 
-One commit per state change. Don't squash multi-agent edits — the log
-*is* the history.
+## Append-only convention
 
-## Claim → release protocol
+- Don't rewrite history. Move superseded board sections to
+  `.archive/EXECUTION_BOARD.<date>.md`.
+- One commit per state change. Don't squash multi-agent edits — the
+  commit log is the audit trail.
+- Commit message: `chore(board): G2 claimed by main` (or similar).
 
-1. **Claim**: edit the milestone row, set status = `claimed`, stamp
-   your agent id + UTC time.
-2. **Working**: bump to `working` on first real edit. If you sit on
-   `claimed` >30min without `working`, release it.
-3. **Done**: flip to `done` + link to merged PR.
-4. **Blocked**: flip to `blocked`, append one-liner to
-   [`FAILURE_LOG.md`](FAILURE_LOG.md). If it's been blocked twice,
-   open a fork decision in [`FORK_DECISIONS.md`](FORK_DECISIONS.md).
+## Multi-agent coordination
 
-## Don't
-
-  - Squash multi-agent commits to the board.
-  - Reorder closed milestones (history is append-only).
-  - Mark `done` without a merged PR link.
-  - Claim something you can't start within the at-bat.
+- Read the dashboard before claiming. If two agents pick up the same
+  milestone, the later one re-routes — don't race.
+- Disjoint deps run in parallel. The greenfield board is structured so
+  G2 + G4 + G5 + G6 can run concurrently after G1.
 
 ## Archive policy
 
-When a layer fully closes, move its rows under an `## Archive` header
-at the bottom of the board. Don't delete.
+When a milestone family closes (e.g. all G* DONE), archive that section
+of the board into `.archive/EXECUTION_BOARD.<milestone-family>.md` and
+start a fresh board for the next family.
+
+## Cross-link with failure log
+
+If a milestone hits a known blocker, link the relevant `FAILURE_LOG.md`
+entry from the `blocker:` note rather than re-explaining.

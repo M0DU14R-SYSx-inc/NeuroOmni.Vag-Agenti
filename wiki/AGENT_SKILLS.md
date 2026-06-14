@@ -1,41 +1,51 @@
-# Agent Skills (Memory)
+# Agent skills — standard + how to add one
 
-Skills are the agent's persistent memory: cacheable context bundles
-that load before any user message so sub-agents don't re-derive
-project state.
-
-## Standard
-
-Open SKILL.md standard — Claude Code, Codex, Cursor all consume the
-same file. Each skill is a folder under `skills/<name>/SKILL.md` with
-YAML frontmatter (name, description, version) and a Markdown body.
+Horizons uses the Anthropic Skills standard (SKILL.md frontmatter +
+Markdown body) for vendor-portable agent memory. A skill is the runtime
+context block; the wiki is the human-readable source.
 
 ## Current skills
 
-  - [`../skills/horizons-wiki/SKILL.md`](../skills/horizons-wiki/SKILL.md)
-    — bundles `CLAUDE_AT_HORIZONS.md` + `PROMPT_PREFIX.md` as one
-    cacheable system block.
+| Skill | Purpose | When to invoke |
+|---|---|---|
+| `skills/horizons-wiki/SKILL.md` | Bundles wiki + prefix as one cacheable block | Full architecture context needed (legacy bundler) |
+| `skills/project-memory/SKILL.md` | Bundles the three pickup files + wiki | New agent landing, multi-tile coordination, greenfield work |
 
-## Loading order
+## Frontmatter shape
 
-1. Host reads `SKILL.md`, follows file references.
-2. Concatenates stable-then-volatile (architecture → prefix).
-3. Passes as `system` block with `cache_control: {type: "ephemeral",
-   ttl: "1h"}` on the last entry.
-4. Logs the skill name as cache-key correlator.
+```yaml
+---
+name: <kebab-case-name>
+description: |
+  When to use it. When NOT to use it. Keep ≤ 3 sentences.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+---
+```
+
+`description` is the agent-facing trigger. Write it so a reading agent
+can decide "does my at-bat need this skill" without invoking it.
+
+## Body shape
+
+Three blocks:
+
+1. **What to read** — ordered list of files + 1-line each on why.
+2. **What this skill is for / NOT for** — paired sections.
+3. **Maintenance protocol** — who edits, when, what invalidates the cache.
 
 ## Adding a new skill
 
-  1. `mkdir skills/<name> && touch skills/<name>/SKILL.md`.
-  2. Frontmatter: name, description, version, tags.
-  3. Body: when to use, how to use, what NOT to do, files referenced.
-  4. Add the skill to the agent template (`sub-agent.agent.yaml`
-    `skills:` list) and re-deploy.
-  5. Add a row to [`README.md`](README.md).
+1. `mkdir skills/<name> && cd skills/<name>`
+2. Write `SKILL.md` per the shapes above.
+3. List it in this file's table.
+4. If the skill bundles cacheable prefix content, mark it in the wiki's
+   `CACHE_PROMPTING.md` so operators know its cache impact.
 
-## Don't
+## What skills are NOT for
 
-  - Embed agent-specific task instructions in a skill (those belong in
-    the first user message; keep cached prefix stable).
-  - Edit a skill mid-session (forces 2x cache rewrite).
-  - Stack skills that duplicate each other — pick one canonical.
+- One-off task instructions — those go in the agent's first user message.
+- Secrets — use `AppStateStore`.
+- Long architecture content — link the wiki, don't inline it.
