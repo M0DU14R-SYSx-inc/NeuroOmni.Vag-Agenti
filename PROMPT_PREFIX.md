@@ -15,7 +15,13 @@
 2. **`PROMPT_PREFIX.md`** (this file) — pointers, rules, scope-limiting cues.
 3. **`EXECUTION_BOARD.md`** — the active milestone list + claims dashboard.
 
-Anything else is loaded **only if the task needs it**.
+Anything else is loaded **only if the task needs it**. The most useful
+secondary references:
+
+- `OPEN_QUESTIONS.md` — inbox of blockers awaiting operator answers. If
+  your at-bat touches one, escalate; don't guess.
+- `DECISIONS.md` — ADR-style *why* log.
+- `GLOSSARY.md` — one-liners for terms, paths, models. Cheap context.
 
 ## The 9-boundary stack (Truman Show)
 

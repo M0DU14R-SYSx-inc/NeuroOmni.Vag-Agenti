@@ -16,6 +16,9 @@ see `GREENFIELD_PLAN.md`.
 - `CLAUDE_AT_HORIZONS.md` — stable architecture wiki (the 9 boundaries,
   Truman Show, three control surfaces, state management).
 - `GREENFIELD_PLAN.md` — rebuild scope, salvage list, scrap list.
+- `DECISIONS.md` — ADR-style log: the *why* behind each cut.
+- `OPEN_QUESTIONS.md` — single inbox for blockers awaiting answers.
+- `GLOSSARY.md` — one-liners for terms, paths, models.
 - `wiki/` — discovery index + maintenance docs + failure / fork logs.
 - `rules/` — hard rules (cache, git hygiene, at-bat protocol).
 - `skills/project-memory/SKILL.md` — bundles project memory as one cache block.

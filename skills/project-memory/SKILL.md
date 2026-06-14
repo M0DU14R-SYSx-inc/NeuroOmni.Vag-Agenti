@@ -26,6 +26,9 @@ full context get it in one cache hit.
 4. `CLAUDE_AT_HORIZONS.md` — stable architecture wiki. The 9 boundaries,
    Truman Show, three control surfaces, state management.
 5. `GREENFIELD_PLAN.md` — rebuild scope, salvage list, scrap list.
+6. `DECISIONS.md` — ADR log; the *why* behind each cut.
+7. `OPEN_QUESTIONS.md` — single inbox for blockers awaiting operator answers.
+8. `GLOSSARY.md` — one-liners for terms, paths, models.
 
 ## What this skill is for
 
