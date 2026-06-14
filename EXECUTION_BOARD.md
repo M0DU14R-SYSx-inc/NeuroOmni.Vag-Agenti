@@ -144,8 +144,12 @@ acceptance: |
 
 ```yaml
 status: BLOCKED
-blocker: waiting on design agent's UI artifact (operator preparing).
+blocker: waiting on operator to drop a rough design draft (designer agent
+  failed 5 spin-ups; operator now hand-providing).
 difficulty: 3/5
+note: |
+  G2-G6 ship under the existing installed UI. Operator updates the APK,
+  uses new engine layer through the old screens. Don't gate G2-G6 on this.
 ```
 
 ### G8 — Legacy deletion
